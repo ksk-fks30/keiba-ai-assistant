@@ -8,12 +8,18 @@
 
 公開Webサービスではなく、ローカル環境で動作するWebアプリとして開発する。指定したレースについてnetKeibaをブラウザ操作で参照し、取得した情報を構造化したうえで、ユーザー定義の予想方針に基づいてCodex SDKで分析する。分析結果はローカルブラウザで閲覧し、同じレースについて追加質問できるようにする。
 
-## アーキテクチャ方針
+## アーキテクチャ構成
 
-- パッケージ管理はpnpm workspaceを使用する。
-- 実装言語はTypeScript 6系を基本とする。
-- リンターはoxlintを使用する。
-- モノレポ構成は `apps/web`、`apps/cli`、`packages/models`、`packages/scraper`、`packages/ai`、`packages/storage` を基本とする。
+- パッケージ管理はpnpm workspaceである。
+- 実装言語はTypeScript 6系である。
+- workspace内の実行・参照はTypeScriptソースを前提とし、内部packageは `dist/*.js` や `.d.ts` を公開面にしない。
+- workspace packageの `exports` は `src/*.ts` を指す。
+- 標準の品質確認は `typecheck` と `lint` で行い、`build` scriptは置かない。
+- `apps/*` は必要に応じてアプリ成果物を生成してよいが、その場合は `bundle` など用途が分かるscript名を追加する。
+- リンターはoxlint、フォーマッターはoxfmtである。
+- ルートに置く外部依存はTypeScript、oxlint、oxfmtである。
+- その他の外部依存は、実際に利用するworkspace packageへ `pnpm --filter` で追加する。
+- モノレポ構成は `apps/web`、`apps/cli`、`packages/models`、`packages/scraper`、`packages/ai`、`packages/storage` である。
 - データモデルとZodスキーマは `packages/models` に集約する。
 - netKeibaや天気情報の取得処理は `packages/scraper` に集約する。
 - Codex SDKによる分析処理は `packages/ai` に集約する。
@@ -43,7 +49,7 @@ keiba-ai-assistant/
       src/
         server/
           app.ts
-          renderer.ts
+          root.tsx
           routes/
             home.ts
             races.ts
@@ -84,8 +90,14 @@ keiba-ai-assistant/
       package.json
       tsconfig.json
       src/
+        bet-candidate.ts
         race.ts
+        race-surface.ts
+        weather.ts
         horse.ts
+        past-performance.ts
+        pedigree.ts
+        horse-evaluation.ts
         prediction.ts
         qa.ts
         policy.ts
@@ -133,17 +145,22 @@ keiba-ai-assistant/
     .gitkeep
 ```
 
-## Webアプリ方針
+## Webアプリ構成
 
-- `apps/web` はHono、Inertia.js、Reactで実装する。
-- HonoのInertia連携には `@hono/inertia` を使用する。
+- `apps/web` はHono、Inertia.js、Reactで構成する。
+- HonoのInertia連携は `@hono/inertia` で行う。
+- ローカル開発時のHono/Vite連携は `@hono/vite-dev-server` で行う。
+- `apps/web/src/server/root.tsx` はHono JSXでroot HTMLを生成する。
+- React Fast Refreshのpreambleは `apps/web/src/client.tsx` の `@vitejs/plugin-react/preamble` importで読み込む。
+- React Compilerは `apps/web/vite.config.ts` で `@vitejs/plugin-react` の `reactCompilerPreset` と `@rolldown/plugin-babel` により有効化済みである。
+- React Compilerが通常の描画最適化を担うため、Reactコンポーネントでは描画最適化だけを目的に `useMemo`、`useCallback`、`React.memo` を追加しない。参照同一性が外部APIの契約になる場合、計算が実測上重い場合、またはプロファイルで必要性が確認できた場合に限って手動メモ化を使う。
 - 画面はサーバー駆動SPAとして扱う。
 - レースページはHonoのサーバー側ルーティングからInertiaページとして描画する。
 - API専用エンドポイントを増やしすぎず、画面遷移と表示データはサーバー側で管理する。
 - 追加質問、分析実行、取得実行などの操作は必要に応じてHonoのrouteとして実装する。
 - 外部公開を前提にした認証、マルチユーザー、公開デプロイ設定は追加しない。
 
-## CLI方針
+## CLI構成
 
 - `apps/cli` はローカル操作用の入口として実装する。
 - Webサーバー起動、レース取得、分析、追加質問の実行をCLIから呼べるようにする。
@@ -158,7 +175,23 @@ keiba-ai-assistant analyze --race-id <race-id>
 keiba-ai-assistant ask --race-id <race-id> <question>
 ```
 
-## Scraper方針
+## コード品質設定
+
+以下は `.oxlintrc.json`、`.oxfmtrc.json`、`tsconfig.base.json`、各package scriptに反映されている。
+
+- 内部コードの相対import/exportは禁止し、`@keiba-ai-assistant/...` から始まるworkspace package importを使用する。
+- TypeScriptのmodule resolutionはBundlerを使用し、内部import/exportでは拡張子なしのspecifierを使用する。
+- TypeScriptの検査は `tsc --noEmit` で行う。package単位のJSや宣言ファイルは生成しない。
+- 型だけを参照するimportは `import type` を使用する。
+- importの重複は禁止する。
+- 文字列リテラルはダブルクォートを使用する。
+- ステートメント末尾のセミコロンは必須とする。
+- 条件分岐とループのブロックは波括弧を必須とする。
+- 等価比較は `===` / `!==` を使用する。
+- Promiseを返す関数の呼び出し結果を `void` で破棄しない。必要に応じて `await`、`return`、または明示的なエラーハンドリングを使用する。
+- `console` はCLIとサーバー起動ログなど、ローカル実行入口に限って許可する。
+
+## Scraper責務
 
 `packages/scraper` には、外部情報を取得して `packages/models` の構造に変換する処理を置く。
 
@@ -169,7 +202,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 
 `packages/scraper` はデータ取得と構造化までを責務とし、保存処理は `packages/storage` に委ねる。
 
-## AIパッケージ方針
+## AIパッケージ責務
 
 `packages/ai` には、Codex SDKによる分析処理を置く。
 
@@ -180,7 +213,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 
 `packages/ai` は構造化済みデータと予想方針を入力として受け取り、予想結果やQ&A回答を返す。保存処理は `packages/storage` に委ねる。
 
-## Storage方針
+## Storage責務
 
 `packages/storage` には、ローカルファイルの読み書きを置く。
 
@@ -193,7 +226,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 
 `packages/storage` は永続化形式を隠蔽し、web/cliや他パッケージがファイルパスの詳細に依存しすぎないようにする。
 
-## Models方針
+## Models責務
 
 `packages/models` には、アプリ全体で共有するデータモデルとZodスキーマを置く。
 
@@ -205,7 +238,9 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 
 `packages/models` は副作用を持たない純粋な型・スキーマ定義パッケージとして扱う。ファイルI/O、ブラウザ操作、Codex SDK呼び出し、Hono/React依存を入れない。
 
-## AI分析方針
+`packages/models/src` は1スキーマ1ファイルで構成する。各モデルファイルは `xxxSchema`、`Xxx` 型、`parseXxx(value: unknown): Xxx` を export する。Zodスキーマ値は値として扱い、lower camel caseで命名する。モデル項目には、その項目が何を表すか分かるコメントを置く。
+
+## AI分析仕様
 
 - AI分析にはCodex SDKを使用する。
 - Webページを直接AIに読ませて予想させず、取得済みデータを `packages/models` のZodスキーマに沿って構造化してから分析する。
@@ -214,7 +249,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 - Codex SDKの出力は `prediction.json` や `qa.jsonl` として保存できる形にする。
 - 追加質問では、対象レースの `race.json`、`prediction.json`、`qa.jsonl`、`policies/main.md` を参照する。
 
-## データ取得方針
+## データ取得仕様
 
 - 主データソースはnetKeibaとする。
 - netKeibaの利用はグレー領域を含むため、ローカル私用・低頻度・低負荷を前提にする。
@@ -247,7 +282,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 - 短時間に複数回のリクエストを発生させない。
 - 失敗時のリトライ回数には上限を設ける。
 
-## ローカルデータ方針
+## ローカルデータ仕様
 
 レース単位の実行結果は `runs/` に保存する。
 
@@ -299,7 +334,7 @@ data/*
 
 公開リポジトリに含めてよいのは、ソースコード、設定例、テンプレート、架空データのサンプルのみとする。
 
-## UI方針
+## UI仕様
 
 - レースレポートはローカルブラウザで閲覧する。
 - レポート画面から同じレースについて追加質問できるようにする。
@@ -311,6 +346,7 @@ data/*
 
 - 既存ファイルを編集する前には必ず読み直す。
 - `.serena` ディレクトリが存在する場合は、コード参照と修正にSerena MCP Serverを使用する。
+- 実装タスクを終える前には必ず `pnpm lint` と `pnpm typecheck` を実行する。
 - 型定義とZodスキーマは `packages/models` を中心に置き、入出力境界で検証する。
 - `packages/*` にUI依存を入れない。
 - `apps/web` 固有のReactコンポーネントを `packages/*` に置かない。

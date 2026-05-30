@@ -1,0 +1,27 @@
+{
+  "name": "@keiba-ai-assistant/cli",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "keiba-ai-assistant": "./src/index.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@keiba-ai-assistant/ai": "workspace:*",
+    "@keiba-ai-assistant/models": "workspace:*",
+    "@keiba-ai-assistant/scraper": "workspace:*",
+    "@keiba-ai-assistant/storage": "workspace:*",
+    "commander": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3"
+  }
+}

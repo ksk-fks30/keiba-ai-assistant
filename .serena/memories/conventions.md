@@ -3,14 +3,25 @@
 - Always respond in Japanese for this repo.
 - If the user prompt ends like `教えて`, `確認して`, or asks only for information, do not edit files; answer findings only unless intent is ambiguous.
 - Before editing any existing file, reread that file in the current turn.
+- Before finishing implementation tasks, always run `pnpm lint` and `pnpm typecheck`.
 - Because `.serena/` exists, use Serena MCP for code reference/modification where applicable, especially symbol search, overview, and symbol replacement.
 - Keep README product-facing and shallow; keep technical/implementation policy in `AGENTS.md` and memories.
+- Root external dependencies are limited to TypeScript, oxlint, and oxfmt. Add other external dependencies to the package that uses them via `pnpm --filter`.
+- Workspace runtime and imports assume TypeScript source files. Internal packages export `src/*.ts`; do not add a generic `build` script. App packages may generate app artifacts with explicit script names such as `bundle` if needed.
+- TypeScript checks run with `tsc --noEmit`; do not add package `dist/*.js` or `.d.ts` as the internal workspace public surface.
+- Internal code must not use relative import/export specifiers; use `@keiba-ai-assistant/...` workspace imports.
+- TypeScript uses Bundler module resolution; internal imports/exports should use extensionless specifiers.
+- Load the React Fast Refresh preamble by importing `@vitejs/plugin-react/preamble` in `apps/web/src/client.tsx`; do not hand-roll the preamble in the root view.
+- Use `import type` for type-only imports, avoid duplicate imports, use double quotes, require semicolons, require braces for control-flow blocks, and use `===` / `!==`.
+- Do not discard Promise-returning calls with the `void` operator; use `await`, `return`, or explicit error handling.
+- `console` is allowed only at local execution entry points such as CLI commands and server startup logs.
 - Package dependency boundaries:
   - `packages/models` must not depend on other workspace packages and must not do I/O, browser automation, Codex calls, Hono, or React.
   - `packages/scraper`, `packages/ai`, `packages/storage` may depend on `packages/models`.
   - `apps/web` and `apps/cli` may depend on `packages/*`.
   - `packages/*` must not depend on `apps/*`.
 - Keep persistence out of `packages/scraper` and `packages/ai`; route it through `packages/storage`.
+- `packages/models/src` uses one schema per file. Each model file exports `xxxSchema`, `Xxx`, and `parseXxx(value: unknown): Xxx`; schema values use lower camel case, and model fields should have comments explaining what they represent.
 - Do not add public deployment, multi-user auth, or features that break local-private-use assumptions.
 - Never implement shortcuts that bypass netKeiba access controls. Stop on communication limits, warning pages, CAPTCHA, abnormal responses, login/paywall/access restrictions.
 - Do not commit or publish real netKeiba-derived data, generated real-race reports, HTML/images/screenshots, reproduced race-card data, browser sessions, cookies, credentials, or `.env`.

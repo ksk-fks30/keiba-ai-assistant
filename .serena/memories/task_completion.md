@@ -1,9 +1,9 @@
 # Task Completion
 
 - Docs-only changes: reread changed docs if needed, then inspect `git diff -- README.md AGENTS.md` or relevant paths.
-- Code changes after scaffold:
-  - Run `pnpm typecheck`.
-  - Run `pnpm oxlint` or the repo lint script if one wraps oxlint.
+- Implementation changes:
+  - Always run `pnpm lint`.
+  - Always run `pnpm typecheck`.
   - Run focused tests when test files/scripts exist.
 - Frontend/UI changes after scaffold:
   - Start the local dev server and verify in browser when feasible.

@@ -1,0 +1,20 @@
+{
+  "name": "keiba-ai-assistant",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.5.0",
+  "scripts": {
+    "dev:cli": "pnpm --filter @keiba-ai-assistant/cli dev",
+    "dev:web": "pnpm --filter @keiba-ai-assistant/web dev",
+    "format": "oxfmt . --write",
+    "format:check": "oxfmt . --check",
+    "lint": "pnpm oxlint && pnpm format:check",
+    "oxlint": "oxlint .",
+    "typecheck": "pnpm -r --workspace-concurrency=1 typecheck"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.52.0",
+    "oxlint": "^1.67.0",
+    "typescript": "^6.0.3"
+  }
+}

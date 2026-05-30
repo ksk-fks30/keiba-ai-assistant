@@ -9,6 +9,6 @@
   - `keiba-ai-assistant ask --race-id <race-id> <question>`
 - Expected quality commands once scripts are added:
   - `pnpm typecheck`
-  - `pnpm oxlint`
+  - `pnpm lint`
 - Serena memory sanity check from repo root: `serena memories check`.
 - Darwin shell is zsh. Use `rg` / `rg --files` for search and file discovery.

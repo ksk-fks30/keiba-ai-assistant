@@ -1,0 +1,48 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["import", "typescript", "react"],
+  "ignorePatterns": [
+    ".serena/**",
+    ".pnpm-store/**",
+    "node_modules/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "data/**",
+    "runs/**"
+  ],
+  "settings": {
+    "react": {
+      "version": "19.2.6"
+    }
+  },
+  "rules": {
+    "curly": ["error", "all"],
+    "eqeqeq": ["error", "always"],
+    "import/first": "error",
+    "import/no-relative-parent-imports": "error",
+    "no-console": "error",
+    "no-duplicate-imports": "error",
+    "no-void": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["./*", "../*"],
+            "message": "内部コードは @keiba-ai-assistant/... から絶対 import してください。"
+          }
+        ]
+      }
+    ],
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-floating-promises": "error"
+  },
+  "overrides": [
+    {
+      "files": ["apps/cli/src/**/*.ts", "apps/web/src/server/app.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

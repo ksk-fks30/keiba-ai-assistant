@@ -1,0 +1,16 @@
+{
+  "name": "@keiba-ai-assistant/ai",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@keiba-ai-assistant/models": "workspace:*",
+    "@openai/codex-sdk": "^0.135.0"
+  }
+}

@@ -1,1 +1,12 @@
 .idea/
+node_modules/
+.pnpm-store/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+runs/*
+!runs/.gitkeep
+data/*
+!data/.gitkeep

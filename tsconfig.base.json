@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2025",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@keiba-ai-assistant/ai": ["./packages/ai/src/index.ts"],
+      "@keiba-ai-assistant/ai/*": ["./packages/ai/src/*"],
+      "@keiba-ai-assistant/cli/*": ["./apps/cli/src/*"],
+      "@keiba-ai-assistant/models": ["./packages/models/src/index.ts"],
+      "@keiba-ai-assistant/models/*": ["./packages/models/src/*"],
+      "@keiba-ai-assistant/scraper": ["./packages/scraper/src/index.ts"],
+      "@keiba-ai-assistant/scraper/*": ["./packages/scraper/src/*"],
+      "@keiba-ai-assistant/storage": ["./packages/storage/src/index.ts"],
+      "@keiba-ai-assistant/storage/*": ["./packages/storage/src/*"],
+      "@keiba-ai-assistant/web/*": ["./apps/web/src/*"]
+    }
+  }
+}
