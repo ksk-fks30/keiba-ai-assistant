@@ -1,4 +1,4 @@
-# keiba-ai
+# keiba-ai-assistant
 
 個人利用のための競馬予想AIツール。
 
