@@ -7,9 +7,9 @@ export const betCandidateSchema = z.object({
   // この買い目候補に含める馬IDの一覧。
   horses: z.array(z.string()),
   // この買い目候補を提示する理由。
-  reason: z.string().optional(),
-  // 投資配分の相対ウェイト。0から100で表す。
-  stakeWeight: z.number().min(0).max(100).optional()
+  reason: z.string(),
+  // 投資配分の相対ウェイト。買い目全体を100とした整数で表す。
+  stakeWeight: z.number().int().min(0).max(100)
 });
 
 export type BetCandidate = z.infer<typeof betCandidateSchema>;

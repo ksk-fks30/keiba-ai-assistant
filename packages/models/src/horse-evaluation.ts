@@ -9,9 +9,9 @@ export const horseEvaluationSchema = z.object({
   // 評価スコア。0から100で表す。
   score: z.number().min(0).max(100),
   // 評価を支持する理由。
-  reasons: z.array(z.string()).default([]),
+  reasons: z.array(z.string()),
   // 不安要素や評価上のリスク。
-  risks: z.array(z.string()).default([])
+  risks: z.array(z.string())
 });
 
 export type HorseEvaluation = z.infer<typeof horseEvaluationSchema>;

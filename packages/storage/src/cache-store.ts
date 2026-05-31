@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 
 export interface CacheStoreOptions {
   rootDir?: string;
@@ -18,7 +19,7 @@ export const readCache = async <T>(
   try {
     return JSON.parse(await readFile(getCachePath(key, options), "utf8")) as T;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isMissingFileError(error)) {
       return null;
     }
     throw error;
