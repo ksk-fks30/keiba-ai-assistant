@@ -7,7 +7,7 @@ interface RaceIndexProps {
   races: RaceListItem[];
 }
 
-export default function RaceIndex({ races }: RaceIndexProps) {
+const RaceIndex = ({ races }: RaceIndexProps) => {
   return (
     <main className="app-shell">
       <h1>Races</h1>
@@ -18,4 +18,6 @@ export default function RaceIndex({ races }: RaceIndexProps) {
       </ul>
     </main>
   );
-}
+};
+
+export default RaceIndex;

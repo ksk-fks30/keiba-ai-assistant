@@ -7,7 +7,7 @@ export interface CollectRaceInput {
   minDelayMs?: number;
 }
 
-export async function collectRaceFromNetkeiba(input: CollectRaceInput): Promise<Race> {
+export const collectRaceFromNetkeiba = async (input: CollectRaceInput): Promise<Race> => {
   const session = await createBrowserSession();
 
   try {
@@ -18,8 +18,8 @@ export async function collectRaceFromNetkeiba(input: CollectRaceInput): Promise<
   } finally {
     await session.close();
   }
-}
+};
 
-export function parseCollectedRace(value: unknown): Race {
+export const parseCollectedRace = (value: unknown): Race => {
   return parseRace(value);
-}
+};

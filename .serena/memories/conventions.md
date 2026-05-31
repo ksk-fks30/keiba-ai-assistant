@@ -13,6 +13,7 @@
 - TypeScript uses Bundler module resolution; internal imports/exports should use extensionless specifiers.
 - Load the React Fast Refresh preamble by importing `@vitejs/plugin-react/preamble` in `apps/web/src/client.tsx`; do not hand-roll the preamble in the root view.
 - Use `import type` for type-only imports, avoid duplicate imports, use double quotes, require semicolons, require braces for control-flow blocks, and use `===` / `!==`.
+- Define functions as `const` arrow functions by default in new or edited TypeScript/TSX code. Use `function` declarations only when hoisting, overloads, or framework constraints make them necessary.
 - Do not discard Promise-returning calls with the `void` operator; use `await`, `return`, or explicit error handling.
 - `console` is allowed only at local execution entry points such as CLI commands and server startup logs.
 - Package dependency boundaries:

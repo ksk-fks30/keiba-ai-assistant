@@ -33,6 +33,6 @@ export const raceSchema = z.object({
 
 export type Race = z.infer<typeof raceSchema>;
 
-export function parseRace(value: unknown): Race {
+export const parseRace = (value: unknown): Race => {
   return raceSchema.parse(value);
-}
+};
