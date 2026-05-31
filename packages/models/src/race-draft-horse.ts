@@ -12,6 +12,14 @@ export const raceDraftHorseSchema = z.object({
   horseNumber: z.number().int().positive(),
   // 今回騎乗する騎手。
   jockey: z.string().min(1),
+  // 馬体重。kg単位。不明な場合は null を入れる。
+  bodyWeightKg: z.number().int().positive().nullable(),
+  // 前回発表値からの馬体重増減。kg単位。不明な場合は null を入れる。
+  bodyWeightDiffKg: z.number().int().nullable(),
+  // 現在の単勝オッズ。不明な場合は null を入れる。
+  odds: z.number().positive().nullable(),
+  // オッズに基づく人気順。不明な場合は null を入れる。
+  popularity: z.number().int().positive().nullable(),
   // 適性分析に使う血統情報。
   pedigree: raceDraftPedigreeSchema,
   // 直近の過去走。最大5走まで保持する。

@@ -8,6 +8,7 @@ describe("parseRaceDraft", () => {
       id: "fixture-aoba-mile-2026",
       name: "青葉架空マイル",
       racecourse: "東京",
+      startTime: "2026-05-31T15:40:00+09:00",
       surface: "turf",
       distanceMeters: 1600,
       horses: [
@@ -16,6 +17,10 @@ describe("parseRaceDraft", () => {
           name: "シラユキコード",
           horseNumber: 1,
           jockey: "架空 太郎",
+          bodyWeightKg: null,
+          bodyWeightDiffKg: null,
+          odds: null,
+          popularity: null,
           pedigree: {
             sire: "フィクションキング",
             dam: "シラユキメモリー",
