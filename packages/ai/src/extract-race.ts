@@ -3,6 +3,7 @@ import {
   parseRaceDraft,
   type Race,
   type RaceDraft,
+  type RaceDraftHorse,
   type RaceDraftPastPerformance,
   type RaceDraftPedigree,
   type RaceSourceSnapshot
@@ -66,17 +67,29 @@ const buildRace = (input: ExtractRaceFromSnapshotInput, draft: RaceDraft): Race 
     ...draft,
     sourceUrl: input.snapshot.racePage.sourceUrl,
     collectedAt: buildCollectedAt(input),
-    horses: draft.horses.map((horse) => ({
-      ...horse,
-      pedigree: mapDraftPedigree(horse.pedigree),
-      pastPerformances: horse.pastPerformances.map(mapDraftPastPerformance)
-    }))
+    horses: draft.horses.map(mapDraftHorse)
   });
 };
 
 /** レースデータに記録する取得日時をISO 8601文字列で作る。 */
 const buildCollectedAt = (input: ExtractRaceFromSnapshotInput): string => {
   return (input.now?.() ?? new Date(input.snapshot.racePage.capturedAt)).toISOString();
+};
+
+/** AI出力用の出走馬下書きを、保存用RaceのHorseに変換する。 */
+const mapDraftHorse = (horse: RaceDraftHorse) => {
+  return {
+    id: horse.id,
+    name: horse.name,
+    horseNumber: horse.horseNumber,
+    jockey: horse.jockey,
+    ...buildNullableNumberProperty("bodyWeightKg", horse.bodyWeightKg),
+    ...buildNullableNumberProperty("bodyWeightDiffKg", horse.bodyWeightDiffKg),
+    ...buildNullableNumberProperty("odds", horse.odds),
+    ...buildNullableNumberProperty("popularity", horse.popularity),
+    pedigree: mapDraftPedigree(horse.pedigree),
+    pastPerformances: horse.pastPerformances.map(mapDraftPastPerformance)
+  };
 };
 
 /** AI出力用の血統下書きを、保存用RaceのPedigreeに変換する。 */
