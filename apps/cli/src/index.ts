@@ -9,6 +9,15 @@ import { registerServeCommand } from "@keiba-ai-assistant/cli/commands/serve";
 
 const program = new Command();
 
+/** CLI action で発生した例外を、スタックトレースではなく利用者向けメッセージに整形する。 */
+const formatCliError = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+};
+
 program
   .name("keiba-ai-assistant")
   .description("Local horse-racing prediction assistant")
@@ -22,4 +31,9 @@ registerAnalyzeCommand(program);
 registerAskCommand(program);
 registerQaHistoryCommand(program);
 
-await program.parseAsync();
+try {
+  await program.parseAsync();
+} catch (error) {
+  console.error(formatCliError(error));
+  process.exitCode = 1;
+}
