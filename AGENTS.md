@@ -83,6 +83,7 @@ keiba-ai-assistant/
         commands/
           serve.ts
           collect.ts
+          policy.ts
           analyze.ts
           ask.ts
 
@@ -133,6 +134,7 @@ keiba-ai-assistant/
       src/
         run-store.ts
         cache-store.ts
+        policy-store.ts
         qa-store.ts
         index.ts
 
@@ -183,6 +185,7 @@ keiba-ai-assistant/
 ```text
 keiba-ai-assistant serve
 keiba-ai-assistant collect --race-url <url>
+keiba-ai-assistant policy
 keiba-ai-assistant analyze --race-id <race-id>
 keiba-ai-assistant ask --race-id <race-id> <question>
 ```
@@ -234,6 +237,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 
 - `runs/` の読み書き
 - `data/` の読み書き
+- `policies/main.md` の読込
 - `race.json` の保存と読込
 - `prediction.json` の保存と読込
 - `qa.jsonl` の追記と読込
