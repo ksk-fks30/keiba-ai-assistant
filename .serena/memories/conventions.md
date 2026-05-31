@@ -23,6 +23,7 @@
   - `packages/*` must not depend on `apps/*`.
 - Keep persistence out of `packages/scraper` and `packages/ai`; route it through `packages/storage`.
 - Prediction policy file reading is handled by `packages/storage` via `readPredictionPolicy`; AI receives `PredictionPolicy` as input and does not read policy files directly.
+- Codex SDK analysis uses `@openai/codex-sdk`; request structured output for `Prediction`, parse the result with `parsePrediction` before storage, and run Codex analysis threads read-only with approval never and web search disabled.
 - `packages/models/src` uses one schema per file. Each model file exports `xxxSchema`, `Xxx`, and `parseXxx(value: unknown): Xxx`; schema values use lower camel case, and model fields should have comments explaining what they represent.
 - Shared fictional development race fixtures live under `fixtures/races/`; import them as `@fixtures/...` in tests. Fixtures must parse through `packages/models` when applicable and must not contain real race-derived data.
 - Unit tests use root Vitest and run with `pnpm test`. Follow `.agents/skills/unit-test-writer`: use `test()`, Japanese test names, and AAA comments.

@@ -186,7 +186,7 @@ keiba-ai-assistant/
 keiba-ai-assistant serve
 keiba-ai-assistant collect --race-url <url>
 keiba-ai-assistant policy
-keiba-ai-assistant analyze --race-id <race-id>
+keiba-ai-assistant analyze --race-id <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
 keiba-ai-assistant ask --race-id <race-id> <question>
 ```
 
@@ -208,6 +208,17 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 - 等価比較は `===` / `!==` を使用する。
 - Promiseを返す関数の呼び出し結果を `void` で破棄しない。必要に応じて `await`、`return`、または明示的なエラーハンドリングを使用する。
 - `console` はCLIとサーバー起動ログなど、ローカル実行入口に限って許可する。
+
+## コメント方針
+
+- コメントは日本語で書く。
+- top-levelの関数、exportする関数、テスト補助関数にはdocコメントを置く。
+- interface、type、schema、公開される定数には、役割が読み取れるdocコメントを置く。
+- interfaceやschemaの各プロパティには、その値が何を表すか分かるコメントを置く。
+- 処理内コメントは、処理順、設計意図、副作用、外部I/O、AI実行、ブラウザ操作、保存前検証、安全設定など、読み手が誤解しやすい箇所に置く。
+- コードをそのまま言い換えるだけのコメントは置かない。
+- コメントは現在の実装事実と意図を説明する。過去の経緯、検討過程、不要になった代替案は書かない。
+- 実装を変更したときは、関連するコメントも同じ変更の一部として更新する。
 
 ## Scraper責務
 
@@ -262,6 +273,9 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 ## AI分析仕様
 
 - AI分析にはCodex SDKを使用する。
+- `packages/ai` の Codex SDK runtime は `@openai/codex-sdk` を使用し、分析時は structured output schema を渡して `Prediction` 形式のJSON出力を要求する。
+- Codex SDKから返った値は保存前に必ず `parsePrediction` を通す。
+- 分析用 Codex SDK thread はファイル変更を行わない前提で `read-only` sandbox、`approvalPolicy: "never"`、`webSearchMode: "disabled"` を使用する。
 - Webページを直接AIに読ませて予想させず、取得済みデータを `packages/models` のZodスキーマに沿って構造化してから分析する。
 - 予想方針は `policies/main.md` に記述する。
 - 分析時には、構造化レースデータ、予想方針、必要に応じて過去のQ&A履歴をCodex SDKに渡す。
