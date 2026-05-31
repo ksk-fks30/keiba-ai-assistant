@@ -37,6 +37,6 @@ export const pastPerformanceSchema = z.object({
 
 export type PastPerformance = z.infer<typeof pastPerformanceSchema>;
 
-export function parsePastPerformance(value: unknown): PastPerformance {
+export const parsePastPerformance = (value: unknown): PastPerformance => {
   return pastPerformanceSchema.parse(value);
-}
+};

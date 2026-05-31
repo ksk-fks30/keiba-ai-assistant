@@ -14,6 +14,6 @@ export const pedigreeSchema = z.object({
 
 export type Pedigree = z.infer<typeof pedigreeSchema>;
 
-export function parsePedigree(value: unknown): Pedigree {
+export const parsePedigree = (value: unknown): Pedigree => {
   return pedigreeSchema.parse(value);
-}
+};

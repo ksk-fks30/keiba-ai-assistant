@@ -5,7 +5,7 @@ export interface RaceAnalysisPromptInput {
   policy: PredictionPolicy;
 }
 
-export function buildRaceAnalysisPrompt(input: RaceAnalysisPromptInput): string {
+export const buildRaceAnalysisPrompt = (input: RaceAnalysisPromptInput): string => {
   return [
     "Analyze the race using the user's policy.",
     "",
@@ -15,4 +15,4 @@ export function buildRaceAnalysisPrompt(input: RaceAnalysisPromptInput): string 
     "Race data:",
     JSON.stringify(input.race, null, 2)
   ].join("\n");
-}
+};

@@ -12,6 +12,6 @@ export const predictionPolicySchema = z.object({
 
 export type PredictionPolicy = z.infer<typeof predictionPolicySchema>;
 
-export function parsePredictionPolicy(value: unknown): PredictionPolicy {
+export const parsePredictionPolicy = (value: unknown): PredictionPolicy => {
   return predictionPolicySchema.parse(value);
-}
+};

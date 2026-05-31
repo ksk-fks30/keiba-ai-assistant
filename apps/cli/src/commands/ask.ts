@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 
-export function registerAskCommand(program: Command): void {
+export const registerAskCommand = (program: Command): void => {
   program
     .command("ask")
     .description("Ask a follow-up question about a race")
@@ -9,4 +9,4 @@ export function registerAskCommand(program: Command): void {
     .action(() => {
       throw new Error("ask command is not implemented yet");
     });
-}
+};
