@@ -42,6 +42,22 @@ describe("registerCollectCommand", () => {
         expect(input.model).toBe("fixture-codex-model");
         return race;
       },
+      weatherProvider: {
+        getWeather: async (input) => {
+          expect(input).toEqual({
+            racecourse: race.racecourse,
+            raceStartTime: race.startTime
+          });
+          return {
+            condition: "晴れ",
+            precipitationProbability: 20,
+            temperatureCelsius: 24.8,
+            wind: "南西 12km/h",
+            source: "https://api.open-meteo.com/v1/forecast",
+            observedAt: "2026-05-31T16:00:00+09:00"
+          };
+        }
+      },
       log: (message) => {
         logs.push(message);
       }
@@ -67,7 +83,17 @@ describe("registerCollectCommand", () => {
     const actual = await readRace(race.id, { rootDir });
 
     // Assert
-    expect(actual).toEqual(race);
+    expect(actual).toEqual({
+      ...race,
+      weather: {
+        condition: "晴れ",
+        precipitationProbability: 20,
+        temperatureCelsius: 24.8,
+        wind: "南西 12km/h",
+        source: "https://api.open-meteo.com/v1/forecast",
+        observedAt: "2026-05-31T16:00:00+09:00"
+      }
+    });
     expect(logs).toEqual([`race.json を保存しました: ${race.id}`]);
   });
 
@@ -79,6 +105,11 @@ describe("registerCollectCommand", () => {
       collectRaceSnapshot: async () => snapshot,
       extractRaceFromSnapshot: async () => {
         throw new Error("extract failed");
+      },
+      weatherProvider: {
+        getWeather: async () => {
+          throw new Error("weather should not be called");
+        }
       },
       log: () => {}
     });
@@ -97,6 +128,45 @@ describe("registerCollectCommand", () => {
     // Assert
     await expect(actual).rejects.toThrow("extract failed");
     await expect(listRuns({ rootDir })).resolves.toEqual([]);
+  });
+
+  test("天気取得に失敗してもweatherなしのrace.jsonを保存できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const snapshot = createSnapshot();
+    const race = createRace(snapshot);
+    const logs: string[] = [];
+    const program = createCollectProgram({
+      collectRaceSnapshot: async () => snapshot,
+      extractRaceFromSnapshot: async () => race,
+      weatherProvider: {
+        getWeather: async () => {
+          throw new Error("Open-Meteo の天気取得に未対応の競馬場です: unknown");
+        }
+      },
+      log: (message) => {
+        logs.push(message);
+      }
+    });
+
+    // Act
+    await program.parseAsync([
+      "node",
+      "test",
+      "collect",
+      "--race-url",
+      snapshot.racePage.sourceUrl,
+      "--runs-dir",
+      rootDir
+    ]);
+    const actual = await readRace(race.id, { rootDir });
+
+    // Assert
+    expect(actual).toEqual(race);
+    expect(logs).toEqual([
+      "天気情報を保存しませんでした: Open-Meteo の天気取得に未対応の競馬場です: unknown",
+      `race.json を保存しました: ${race.id}`
+    ]);
   });
 });
 
@@ -145,6 +215,7 @@ const createRace = (snapshot: RaceSourceSnapshot): Race => {
     sourceUrl: snapshot.racePage.sourceUrl,
     name: "青葉架空マイル",
     racecourse: "東京",
+    startTime: "2026-05-31T15:40:00+09:00",
     surface: "turf",
     distanceMeters: 1600,
     horses: [

@@ -48,6 +48,7 @@ export const buildRaceExtractionPrompt = (input: RaceExtractionPromptInput): str
     "出力はJSONのみとし、Markdownや補足文は含めないでください。",
     "sourceUrl と collectedAt はアプリ側で付与するため、出力に含めないでください。",
     "id はURL内の race_id などから読み取れる安定したレースIDにしてください。",
+    "startTime はレースページから読み取れる発走予定日時を Asia/Tokyo の ISO 8601 形式にしてください。不明な場合は null にしてください。",
     "surface は turf, dirt, jump, unknown のいずれかに正規化してください。",
     "distanceMeters はメートル単位の整数にしてください。",
     "horses は出走表から読み取れる馬だけを入れ、各要素には id, name, horseNumber, jockey, bodyWeightKg, bodyWeightDiffKg, odds, popularity, pedigree, pastPerformances を必ず含めてください。",
