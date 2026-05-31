@@ -297,6 +297,8 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 - Codex SDKにはAPI keyや独自の環境変数を渡さず、Codex CLIの通常の認証状態を使用する。
 - `generatedAt` はAIに生成させず、Codex SDKから返った `PredictionDraft` にアプリ側で付与して `Prediction` とする。
 - netKeiba取得の `sourceUrl` と `collectedAt` はAIに生成させず、ブラウザ操作で得た `SourcePageSnapshot` からアプリ側で付与して `Race` とする。
+- netKeiba取得の出走馬ごとの馬体重、馬体重増減、オッズ、人気はレースページsnapshotから `RaceDraftHorse` に構造化し、不明な値は `null` とする。
+- `RaceDraftHorse` の `null` 数値項目は保存用 `Race` へ変換するときに省略し、`Horse` の任意項目として扱う。
 - `betCandidates[].stakeWeight` は買い目全体を100とした0から100の整数とする。
 - Codex SDKから返った値は保存前に必ず `parsePrediction` を通す。
 - Codex SDKから返った `RaceDraft` は `parseRaceDraft` を通し、`Race` として保存する前に必ず `parseRace` を通す。
@@ -326,8 +328,9 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 - 血統
 - 騎手
 - 調教師
-- 馬体重
+- 馬体重と増減
 - オッズ
+- 人気
 - 天気
 
 ## アクセス制御

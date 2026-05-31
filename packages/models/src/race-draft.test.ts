@@ -16,6 +16,10 @@ describe("parseRaceDraft", () => {
           name: "シラユキコード",
           horseNumber: 1,
           jockey: "架空 太郎",
+          bodyWeightKg: null,
+          bodyWeightDiffKg: null,
+          odds: null,
+          popularity: null,
           pedigree: {
             sire: "フィクションキング",
             dam: "シラユキメモリー",
