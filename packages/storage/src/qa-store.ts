@@ -7,15 +7,18 @@ import {
   type RunStoreOptions
 } from "@keiba-ai-assistant/storage/run-store";
 
-export async function appendQaEntry(entry: QaEntry, options: RunStoreOptions = {}): Promise<void> {
+export const appendQaEntry = async (
+  entry: QaEntry,
+  options: RunStoreOptions = {}
+): Promise<void> => {
   const runDir = await ensureRunDir(entry.raceId, options);
   await appendFile(join(runDir, "qa.jsonl"), `${JSON.stringify(parseQaEntry(entry))}\n`, "utf8");
-}
+};
 
-export async function readQaEntries(
+export const readQaEntries = async (
   raceId: string,
   options: RunStoreOptions = {}
-): Promise<QaEntry[]> {
+): Promise<QaEntry[]> => {
   const path = join(getRunDir(raceId, options), "qa.jsonl");
   try {
     const content = await readFile(path, "utf8");
@@ -29,4 +32,4 @@ export async function readQaEntries(
     }
     throw error;
   }
-}
+};
