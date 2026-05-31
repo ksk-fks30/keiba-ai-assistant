@@ -18,6 +18,6 @@ export const weatherSchema = z.object({
 
 export type Weather = z.infer<typeof weatherSchema>;
 
-export function parseWeather(value: unknown): Weather {
+export const parseWeather = (value: unknown): Weather => {
   return weatherSchema.parse(value);
-}
+};

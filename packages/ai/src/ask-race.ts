@@ -7,6 +7,6 @@ export interface AskRaceInput {
   question: string;
 }
 
-export async function askRace(_input: AskRaceInput): Promise<string> {
+export const askRace = async (_input: AskRaceInput): Promise<string> => {
   return "Race Q&A is not implemented yet.";
-}
+};

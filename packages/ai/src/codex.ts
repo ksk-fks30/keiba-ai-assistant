@@ -2,6 +2,6 @@ export interface CodexSdkRuntime {
   model?: string;
 }
 
-export function createCodexSdkRuntime(options: CodexSdkRuntime = {}): CodexSdkRuntime {
+export const createCodexSdkRuntime = (options: CodexSdkRuntime = {}): CodexSdkRuntime => {
   return options;
-}
+};

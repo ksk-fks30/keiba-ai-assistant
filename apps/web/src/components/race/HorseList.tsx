@@ -4,7 +4,7 @@ interface HorseListProps {
   horses: Horse[];
 }
 
-export function HorseList({ horses }: HorseListProps) {
+export const HorseList = ({ horses }: HorseListProps) => {
   return (
     <ul>
       {horses.map((horse) => (
@@ -12,4 +12,4 @@ export function HorseList({ horses }: HorseListProps) {
       ))}
     </ul>
   );
-}
+};

@@ -4,6 +4,6 @@ interface HorseEvaluationProps {
   evaluation: HorseEvaluationModel;
 }
 
-export function HorseEvaluation({ evaluation }: HorseEvaluationProps) {
+export const HorseEvaluation = ({ evaluation }: HorseEvaluationProps) => {
   return <section>{evaluation.mark}</section>;
-}
+};

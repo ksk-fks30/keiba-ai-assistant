@@ -4,7 +4,7 @@ interface QuestionHistoryProps {
   entries: QaEntry[];
 }
 
-export function QuestionHistory({ entries }: QuestionHistoryProps) {
+export const QuestionHistory = ({ entries }: QuestionHistoryProps) => {
   return (
     <ol>
       {entries.map((entry) => (
@@ -12,4 +12,4 @@ export function QuestionHistory({ entries }: QuestionHistoryProps) {
       ))}
     </ol>
   );
-}
+};
