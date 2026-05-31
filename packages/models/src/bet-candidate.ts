@@ -14,6 +14,6 @@ export const betCandidateSchema = z.object({
 
 export type BetCandidate = z.infer<typeof betCandidateSchema>;
 
-export function parseBetCandidate(value: unknown): BetCandidate {
+export const parseBetCandidate = (value: unknown): BetCandidate => {
   return betCandidateSchema.parse(value);
-}
+};

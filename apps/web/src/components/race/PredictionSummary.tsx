@@ -4,6 +4,6 @@ interface PredictionSummaryProps {
   prediction: Prediction;
 }
 
-export function PredictionSummary({ prediction }: PredictionSummaryProps) {
+export const PredictionSummary = ({ prediction }: PredictionSummaryProps) => {
   return <section>{prediction.summary}</section>;
-}
+};

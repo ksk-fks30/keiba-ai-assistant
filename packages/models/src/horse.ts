@@ -36,6 +36,6 @@ export const horseSchema = z.object({
 
 export type Horse = z.infer<typeof horseSchema>;
 
-export function parseHorse(value: unknown): Horse {
+export const parseHorse = (value: unknown): Horse => {
   return horseSchema.parse(value);
-}
+};

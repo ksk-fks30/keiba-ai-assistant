@@ -5,6 +5,6 @@ export const raceSurfaceSchema = z.enum(["turf", "dirt", "jump", "unknown"]);
 
 export type RaceSurface = z.infer<typeof raceSurfaceSchema>;
 
-export function parseRaceSurface(value: unknown): RaceSurface {
+export const parseRaceSurface = (value: unknown): RaceSurface => {
   return raceSurfaceSchema.parse(value);
-}
+};

@@ -12,7 +12,7 @@ export interface AnalyzeRaceInput {
   model?: string;
 }
 
-export async function analyzeRace(input: AnalyzeRaceInput): Promise<Prediction> {
+export const analyzeRace = async (input: AnalyzeRaceInput): Promise<Prediction> => {
   buildRaceAnalysisPrompt({ race: input.race, policy: input.policy });
 
   return parsePrediction({
@@ -23,4 +23,4 @@ export async function analyzeRace(input: AnalyzeRaceInput): Promise<Prediction> 
     generatedAt: new Date().toISOString(),
     model: input.model
   });
-}
+};

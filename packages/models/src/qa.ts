@@ -16,6 +16,6 @@ export const qaEntrySchema = z.object({
 
 export type QaEntry = z.infer<typeof qaEntrySchema>;
 
-export function parseQaEntry(value: unknown): QaEntry {
+export const parseQaEntry = (value: unknown): QaEntry => {
   return qaEntrySchema.parse(value);
-}
+};

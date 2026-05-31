@@ -20,6 +20,6 @@ export const predictionSchema = z.object({
 
 export type Prediction = z.infer<typeof predictionSchema>;
 
-export function parsePrediction(value: unknown): Prediction {
+export const parsePrediction = (value: unknown): Prediction => {
   return predictionSchema.parse(value);
-}
+};

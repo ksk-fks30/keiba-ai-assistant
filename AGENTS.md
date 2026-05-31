@@ -198,6 +198,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 - ユニットテストはrootのVitestで実行し、`pnpm test` を使用する。
 - 型だけを参照するimportは `import type` を使用する。
 - importの重複は禁止する。
+- 関数定義は原則として `function` 宣言ではなく `const` のarrow functionで書く。hoist、overload、フレームワーク制約など明確な理由がある場合だけ例外とする。
 - 文字列リテラルはダブルクォートを使用する。
 - ステートメント末尾のセミコロンは必須とする。
 - 条件分岐とループのブロックは波括弧を必須とする。
