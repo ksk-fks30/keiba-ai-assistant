@@ -10,6 +10,8 @@ export const raceDraftSchema = z.object({
   name: z.string().min(1),
   // 競馬場名。
   racecourse: z.string().min(1),
+  // 発走予定日時。Asia/Tokyo の ISO 8601 形式。不明な場合は null を入れる。
+  startTime: z.string().nullable(),
   // 馬場種別。
   surface: raceSurfaceSchema,
   // レース距離。メートル単位。

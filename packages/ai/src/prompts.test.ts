@@ -42,6 +42,7 @@ describe("buildRaceExtractionPrompt", () => {
     expect(actual).toContain("sourceUrl と collectedAt はアプリ側で付与する");
     expect(actual).toContain("追加取得や自由巡回");
     expect(actual).toContain("horse-number-{馬番}");
+    expect(actual).toContain("startTime");
     expect(actual).toContain("bodyWeightKg");
     expect(actual).toContain("odds");
     expect(actual).toContain("popularity");

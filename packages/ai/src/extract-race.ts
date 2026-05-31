@@ -63,10 +63,13 @@ const buildCodexSdkRuntimeOptions = (
 
 /** AIのレース下書きにブラウザ取得由来のメタ情報を付与し、保存用Raceにする。 */
 const buildRace = (input: ExtractRaceFromSnapshotInput, draft: RaceDraft): Race => {
+  const { startTime, ...raceDraft } = draft;
+
   return parseRace({
-    ...draft,
+    ...raceDraft,
     sourceUrl: input.snapshot.racePage.sourceUrl,
     collectedAt: buildCollectedAt(input),
+    ...buildNullableStringProperty("startTime", startTime),
     horses: draft.horses.map(mapDraftHorse)
   });
 };
@@ -133,6 +136,18 @@ const buildOptionalStringProperty = <Key extends string>(
   }
 
   return { [key]: value } as Partial<Record<Key, string>>;
+};
+
+/** nullではなく空文字でもない文字列だけを指定キーのプロパティとして返す。 */
+const buildNullableStringProperty = <Key extends string>(
+  key: Key,
+  value: string | null
+): Partial<Record<Key, string>> => {
+  if (value === null) {
+    return {};
+  }
+
+  return buildOptionalStringProperty(key, value);
 };
 
 /** nullではない数値だけを指定キーのプロパティとして返す。 */

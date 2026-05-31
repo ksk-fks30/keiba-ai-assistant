@@ -1,9 +1,12 @@
 import type { Command } from "commander";
 import { extractRaceFromSnapshot } from "@keiba-ai-assistant/ai";
+import { parseRace, type Race } from "@keiba-ai-assistant/models";
 import {
   collectRaceSnapshotFromNetkeiba,
+  createOpenMeteoWeatherProvider,
   type CollectRaceSnapshotInput
 } from "@keiba-ai-assistant/scraper";
+import type { WeatherProvider } from "@keiba-ai-assistant/scraper/weather/provider";
 import { writeRace, type RunStoreOptions } from "@keiba-ai-assistant/storage";
 
 /** collect コマンドが受け取る CLI オプション。 */
@@ -28,6 +31,8 @@ export interface CollectCommandDependencies {
   collectRaceSnapshot?: typeof collectRaceSnapshotFromNetkeiba | undefined;
   /** ページsnapshotをRaceモデルへ構造化する関数。 */
   extractRaceFromSnapshot?: typeof extractRaceFromSnapshot | undefined;
+  /** Open-MeteoなどからRaceに紐づく天気を取得するprovider。 */
+  weatherProvider?: WeatherProvider | undefined;
   /** Race モデルを run store へ保存する関数。 */
   writeRace?: typeof writeRace | undefined;
   /** CLI にメッセージを出力する関数。 */
@@ -39,9 +44,11 @@ export const registerCollectCommand = (
   program: Command,
   dependencies: CollectCommandDependencies = {}
 ): void => {
+  const defaultWeatherProvider = createOpenMeteoWeatherProvider();
   const deps = {
     collectRaceSnapshot: dependencies.collectRaceSnapshot ?? collectRaceSnapshotFromNetkeiba,
     extractRaceFromSnapshot: dependencies.extractRaceFromSnapshot ?? extractRaceFromSnapshot,
+    weatherProvider: dependencies.weatherProvider ?? defaultWeatherProvider,
     writeRace: dependencies.writeRace ?? writeRace,
     log: dependencies.log ?? console.log
   };
@@ -61,10 +68,43 @@ export const registerCollectCommand = (
         snapshot,
         ...buildExtractRaceOptions(options)
       });
+      const raceWithWeather = await attachWeather(race, deps.weatherProvider, deps.log);
 
-      await deps.writeRace(race, buildRunStoreOptions(options));
-      deps.log(`race.json を保存しました: ${race.id}`);
+      await deps.writeRace(raceWithWeather, buildRunStoreOptions(options));
+      deps.log(`race.json を保存しました: ${raceWithWeather.id}`);
     });
+};
+
+/** RaceにOpen-Meteo由来の天気情報を付与し、保存前にRaceとして再検証する。 */
+const attachWeather = async (
+  race: Race,
+  weatherProvider: WeatherProvider,
+  log: (message: string) => void
+): Promise<Race> => {
+  try {
+    const weather = await weatherProvider.getWeather({
+      racecourse: race.racecourse,
+      raceStartTime: race.startTime
+    });
+
+    return parseRace({
+      ...race,
+      weather
+    });
+  } catch (error) {
+    // 天気は補助情報なので、Open-Meteo 側の未対応や一時失敗ではレース保存を継続する。
+    log(`天気情報を保存しませんでした: ${readErrorMessage(error)}`);
+    return race;
+  }
+};
+
+/** unknown の例外値からCLI表示用メッセージを取り出す。 */
+const readErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 };
 
 /** CLI オプションから netKeiba snapshot 取得設定を組み立てる。 */
