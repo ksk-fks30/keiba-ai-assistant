@@ -12,6 +12,7 @@ describe("extractRaceFromSnapshot", () => {
         id: "fixture-aoba-mile-2026",
         name: "青葉架空マイル",
         racecourse: "東京",
+        startTime: "2026-05-31T15:40:00+09:00",
         surface: "turf",
         distanceMeters: 1600,
         horses: [
@@ -20,6 +21,10 @@ describe("extractRaceFromSnapshot", () => {
             name: "シラユキコード",
             horseNumber: 1,
             jockey: "架空 太郎",
+            bodyWeightKg: 480,
+            bodyWeightDiffKg: 2,
+            odds: 3.2,
+            popularity: 1,
             pedigree: {
               sire: "フィクションキング",
               dam: "シラユキメモリー",
@@ -64,6 +69,7 @@ describe("extractRaceFromSnapshot", () => {
       sourceUrl: snapshot.racePage.sourceUrl,
       name: "青葉架空マイル",
       racecourse: "東京",
+      startTime: "2026-05-31T15:40:00+09:00",
       surface: "turf",
       distanceMeters: 1600,
       horses: [
@@ -72,6 +78,10 @@ describe("extractRaceFromSnapshot", () => {
           name: "シラユキコード",
           horseNumber: 1,
           jockey: "架空 太郎",
+          bodyWeightKg: 480,
+          bodyWeightDiffKg: 2,
+          odds: 3.2,
+          popularity: 1,
           pedigree: {
             sire: "フィクションキング",
             dam: "シラユキメモリー",
@@ -110,6 +120,7 @@ describe("extractRaceFromSnapshot", () => {
       id: "fixture-aoba-mile-2026",
       name: "青葉架空マイル",
       racecourse: "東京",
+      startTime: null,
       surface: "turf",
       distanceMeters: 1600,
       horses: []
@@ -120,6 +131,51 @@ describe("extractRaceFromSnapshot", () => {
 
     // Assert
     await expect(actual).rejects.toThrow();
+  });
+
+  test("不明な補助情報はRaceの任意項目として保存しない", async () => {
+    // Arrange
+    const snapshot = createSnapshot();
+    const runtime = createRuntime({
+      id: "fixture-aoba-mile-2026",
+      name: "青葉架空マイル",
+      racecourse: "東京",
+      startTime: null,
+      surface: "turf",
+      distanceMeters: 1600,
+      horses: [
+        {
+          id: "fixture-horse-001",
+          name: "シラユキコード",
+          horseNumber: 1,
+          jockey: "架空 太郎",
+          bodyWeightKg: null,
+          bodyWeightDiffKg: null,
+          odds: null,
+          popularity: null,
+          pedigree: {
+            sire: "",
+            dam: "",
+            damSire: "",
+            familyNotes: []
+          },
+          pastPerformances: []
+        }
+      ]
+    });
+
+    // Act
+    const actual = await extractRaceFromSnapshot({ snapshot, runtime });
+
+    // Assert
+    expect(actual.horses[0]).toEqual({
+      id: "fixture-horse-001",
+      name: "シラユキコード",
+      horseNumber: 1,
+      jockey: "架空 太郎",
+      pedigree: { familyNotes: [] },
+      pastPerformances: []
+    });
   });
 });
 
