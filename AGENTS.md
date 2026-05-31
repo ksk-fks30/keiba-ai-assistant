@@ -6,7 +6,7 @@
 
 `keiba-ai-assistant` は、個人利用のための競馬予想AIアシスタントである。
 
-公開Webサービスではなく、ローカル環境で動作するWebアプリとして開発する。指定したレースについてnetKeibaをブラウザ操作で参照し、取得した情報を構造化したうえで、ユーザー定義の予想方針に基づいてCodex SDKで分析する。分析結果はローカルブラウザで閲覧し、同じレースについて追加質問できるようにする。
+公開Webサービスではなく、ローカル環境で動作するWebアプリとして開発する。指定したレースについてnetKeibaをブラウザ操作で参照し、取得したページsnapshotをAIで構造化したうえで、ユーザー定義の予想方針に基づいてCodex SDKで分析する。分析結果はローカルブラウザで閲覧し、同じレースについて追加質問できるようにする。
 
 ## アーキテクチャ構成
 
@@ -21,8 +21,8 @@
 - その他の外部依存は、実際に利用するworkspace packageへ `pnpm --filter` で追加する。
 - モノレポ構成は `apps/web`、`apps/cli`、`packages/models`、`packages/scraper`、`packages/ai`、`packages/storage` である。
 - データモデルとZodスキーマは `packages/models` に集約する。
-- netKeibaや天気情報の取得処理は `packages/scraper` に集約する。
-- Codex SDKによる分析処理は `packages/ai` に集約する。
+- netKeibaや天気情報の取得処理、ページsnapshot作成処理は `packages/scraper` に集約する。
+- Codex SDKによるレースsnapshot構造化、分析処理、追加質問回答処理は `packages/ai` に集約する。
 - `runs/` と `data/` の読み書きは `packages/storage` に集約する。
 - `apps/web` と `apps/cli` は各 `packages/*` に依存してよい。
 - `packages/scraper`、`packages/ai`、`packages/storage` は `packages/models` に依存してよい。
@@ -98,6 +98,8 @@ keiba-ai-assistant/
         race-surface.ts
         weather.ts
         horse.ts
+        race-draft-horse.ts
+        race-draft.ts
         past-performance.ts
         pedigree.ts
         horse-evaluation.ts
@@ -105,6 +107,8 @@ keiba-ai-assistant/
         prediction-draft.ts
         qa.ts
         policy.ts
+        source-page-link.ts
+        source-page-snapshot.ts
         index.ts
 
     scraper/
@@ -112,10 +116,12 @@ keiba-ai-assistant/
       tsconfig.json
       src/
         netkeiba/
+          access-control.ts
           collector.ts
           browser.ts
           selectors.ts
           rate-limit.ts
+          snapshot.ts
         weather/
           provider.ts
         index.ts
@@ -125,6 +131,7 @@ keiba-ai-assistant/
       tsconfig.json
       src/
         codex.ts
+        extract-race.ts
         prompts.ts
         analyze-race.ts
         ask-race.ts
@@ -227,25 +234,29 @@ keiba-ai-assistant qa-history --race-id <race-id> [--runs-dir <path>]
 
 ## Scraper責務
 
-`packages/scraper` には、外部情報を取得して `packages/models` の構造に変換する処理を置く。
+`packages/scraper` には、外部情報を取得してAI構造化用の軽量ページsnapshotを作る処理を置く。
 
 - netKeibaブラウザ操作
 - アクセス制御
-- レースデータの構造化
+- netKeibaページの可視テキスト、見出し、表、リンクからなる軽量snapshot作成
+- レースページ内の馬リンクから馬詳細ページへ1件ずつ遷移し、過去走と血統を含む軽量snapshot作成
 - 天気情報取得
 
-`packages/scraper` はデータ取得と構造化までを責務とし、保存処理は `packages/storage` に委ねる。
+`packages/scraper` はHTML、生DOM、スクリーンショットを保存せず、AI構造化に必要な最小限の `SourcePageSnapshot` を返す。保存処理は `packages/storage` に委ねる。
+
+Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @keiba-ai-assistant/scraper exec playwright install chromium` でインストールする。
 
 ## AIパッケージ責務
 
 `packages/ai` には、Codex SDKによる分析処理を置く。
 
 - Codex SDK連携
+- ページsnapshotから `RaceDraft` への構造化
 - 予想プロンプト生成
 - レース分析
 - 追加質問への回答生成
 
-`packages/ai` は構造化済みデータと予想方針を入力として受け取り、予想結果やQ&A回答を返す。保存処理は `packages/storage` に委ねる。
+`packages/ai` はページsnapshot、構造化済みデータ、予想方針を入力として受け取り、Race、予想結果、Q&A回答を返す。保存処理は `packages/storage` に委ねる。
 
 ## Storage責務
 
@@ -279,15 +290,19 @@ keiba-ai-assistant qa-history --race-id <race-id> [--runs-dir <path>]
 ## AI分析仕様
 
 - AI分析にはCodex SDKを使用する。
+- netKeiba取得では、ブラウザ操作で得た `SourcePageSnapshot` をCodex SDKに渡し、`RaceDraft` JSONとして構造化する。
+- `collect` は `--horse-detail-limit` で馬詳細ページへの遷移件数を制御する。0の場合は馬詳細ページを取得しない。
 - `packages/ai` の Codex SDK runtime は `@openai/codex-sdk` を使用し、分析時は `packages/models` の `predictionDraftSchema` から生成した structured output schema を渡して `PredictionDraft` 形式のJSON出力を要求する。
 - Codex SDK分析は、ローカルPCに導入済みでChatGPTログイン済みのCodex CLIを前提にする。
 - Codex SDKにはAPI keyや独自の環境変数を渡さず、Codex CLIの通常の認証状態を使用する。
 - `generatedAt` はAIに生成させず、Codex SDKから返った `PredictionDraft` にアプリ側で付与して `Prediction` とする。
+- netKeiba取得の `sourceUrl` と `collectedAt` はAIに生成させず、ブラウザ操作で得た `SourcePageSnapshot` からアプリ側で付与して `Race` とする。
 - `betCandidates[].stakeWeight` は買い目全体を100とした0から100の整数とする。
 - Codex SDKから返った値は保存前に必ず `parsePrediction` を通す。
+- Codex SDKから返った `RaceDraft` は `parseRaceDraft` を通し、`Race` として保存する前に必ず `parseRace` を通す。
 - 追加質問では、AIには `QaAnswerDraft` として回答本文だけを生成させ、`QaEntry` の `id`、`raceId`、`question`、`createdAt` はアプリ側で付与する。
 - 分析用 Codex SDK thread はファイル変更を行わない前提で `read-only` sandbox、`approvalPolicy: "never"`、`webSearchMode: "disabled"` を使用する。
-- Webページを直接AIに読ませて予想させず、取得済みデータを `packages/models` のZodスキーマに沿って構造化してから分析する。
+- Webページを直接AIに読ませて予想させず、ブラウザ操作で作った軽量snapshotを `RaceDraft` に構造化し、`Race` として検証してから分析する。
 - 予想方針は `policies/main.md` に記述する。
 - 分析時には、構造化レースデータ、予想方針、必要に応じて過去のQ&A履歴をCodex SDKに渡す。
 - Codex SDKの出力は `prediction.json` や `qa.jsonl` として保存できる形にする。

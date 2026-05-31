@@ -4,9 +4,49 @@ import { parsePredictionPolicy, parseRace } from "@keiba-ai-assistant/models";
 import {
   buildPredictionOutputSchema,
   buildQaAnswerOutputSchema,
+  buildRaceDraftOutputSchema,
+  buildRaceExtractionPrompt,
   buildRaceQuestionPrompt,
   buildRaceAnalysisPrompt
 } from "@keiba-ai-assistant/ai/prompts";
+
+describe("buildRaceExtractionPrompt", () => {
+  test("ページsnapshotだけを使う構造化指示を含める", () => {
+    // Arrange
+    const racePage = {
+      sourceUrl: "https://example.test/race?race_id=fixture-aoba-mile-2026",
+      pageTitle: "青葉架空マイル",
+      visibleText: "青葉架空マイル\n東京 芝1600m",
+      headings: ["青葉架空マイル"],
+      tableTexts: ["馬番 馬名 騎手\n1 シラユキコード 架空太郎"],
+      links: [],
+      capturedAt: "2026-05-31T10:30:00.000Z"
+    };
+    const snapshot = {
+      racePage,
+      horseDetailPages: [
+        {
+          ...racePage,
+          sourceUrl: "https://example.test/horse/fixture-horse-001",
+          pageTitle: "シラユキコード",
+          visibleText: "シラユキコード\n父 フィクションキング\n2026-04-12 架空トライアル"
+        }
+      ]
+    };
+
+    // Act
+    const actual = buildRaceExtractionPrompt({ snapshot });
+
+    // Assert
+    expect(actual).toContain("RaceDraft JSON");
+    expect(actual).toContain("sourceUrl と collectedAt はアプリ側で付与する");
+    expect(actual).toContain("追加取得や自由巡回");
+    expect(actual).toContain("horse-number-{馬番}");
+    expect(actual).toContain("pastPerformances");
+    expect(actual).toContain("pedigree");
+    expect(actual).toContain("青葉架空マイル");
+  });
+});
 
 describe("buildRaceAnalysisPrompt", () => {
   test("生成時刻を含めず買い目配分の整数条件をプロンプトで指定する", () => {
@@ -69,6 +109,19 @@ describe("buildRaceQuestionPrompt", () => {
     expect(actual).toContain("answer には回答本文だけを入れ");
     expect(actual).toContain("本命のリスクは？");
     expect(actual).toContain("馬場が悪化した場合は？");
+  });
+});
+
+describe("buildRaceDraftOutputSchema", () => {
+  test("Codex structured output が要求する required を満たす", () => {
+    // Arrange
+    const schema = buildRaceDraftOutputSchema();
+
+    // Act
+    const actual = findMissingRequiredKeys(schema);
+
+    // Assert
+    expect(actual).toEqual([]);
   });
 });
 
