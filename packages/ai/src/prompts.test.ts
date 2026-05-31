@@ -3,6 +3,8 @@ import sampleRace from "@fixtures/races/sample-race.json";
 import { parsePredictionPolicy, parseRace } from "@keiba-ai-assistant/models";
 import {
   buildPredictionOutputSchema,
+  buildQaAnswerOutputSchema,
+  buildRaceQuestionPrompt,
   buildRaceAnalysisPrompt
 } from "@keiba-ai-assistant/ai/prompts";
 
@@ -25,6 +27,48 @@ describe("buildRaceAnalysisPrompt", () => {
     expect(actual).toContain("type, horses, reason, stakeWeight");
     expect(actual).toContain("stakeWeight は0から100の整数");
     expect(actual).toContain("合計が100");
+  });
+});
+
+describe("buildRaceQuestionPrompt", () => {
+  test("追加質問と過去のQ&A履歴をプロンプトに含める", () => {
+    // Arrange
+    const race = parseRace(sampleRace);
+    const policy = parsePredictionPolicy({
+      path: "policies/main.md",
+      content: "芝マイルでは持続力を重視する。",
+      loadedAt: "2026-05-31T14:30:00+09:00"
+    });
+
+    // Act
+    const actual = buildRaceQuestionPrompt({
+      race,
+      prediction: {
+        raceId: race.id,
+        summary: "シラユキコードを中心に評価する。",
+        evaluations: [],
+        betCandidates: [],
+        generatedAt: "2026-05-31T05:40:00.000Z"
+      },
+      policy,
+      history: [
+        {
+          id: "qa-0001",
+          raceId: race.id,
+          question: "本命のリスクは？",
+          answer: "折り合い面がリスクです。",
+          createdAt: "2026-05-31T06:00:00.000Z"
+        }
+      ],
+      question: "馬場が悪化した場合は？"
+    });
+
+    // Assert
+    expect(actual).toContain("QaAnswerDraft Zodスキーマ");
+    expect(actual).toContain("id, raceId, question, createdAt はアプリ側で付与する");
+    expect(actual).toContain("answer には回答本文だけを入れ");
+    expect(actual).toContain("本命のリスクは？");
+    expect(actual).toContain("馬場が悪化した場合は？");
   });
 });
 
@@ -60,6 +104,20 @@ describe("buildPredictionOutputSchema", () => {
 
     // Assert
     expect(actual).toBeUndefined();
+  });
+});
+
+describe("buildQaAnswerOutputSchema", () => {
+  test("Codex structured output が回答本文だけを要求する", () => {
+    // Arrange
+    const schema = buildQaAnswerOutputSchema();
+
+    // Act
+    const actual = isSchemaObject(schema) ? Object.keys(schema.properties ?? {}) : [];
+
+    // Assert
+    expect(actual).toEqual(["answer"]);
+    expect(findMissingRequiredKeys(schema)).toEqual([]);
   });
 });
 
