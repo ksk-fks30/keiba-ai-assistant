@@ -4,7 +4,7 @@
 - Implementation changes:
   - Always run `pnpm lint`.
   - Always run `pnpm typecheck`.
-  - Run focused tests when test files/scripts exist.
+  - Run `pnpm test` when test files or test tooling changed.
 - Frontend/UI changes after scaffold:
   - Start the local dev server and verify in browser when feasible.
   - Check desktop and mobile layouts for text overflow/overlap.
