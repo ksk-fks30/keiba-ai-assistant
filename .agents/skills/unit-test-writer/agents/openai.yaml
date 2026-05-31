@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unit Test Writer"
+  short_description: "Vitestのユニットテストをroot共通ランナー、AAA、日本語test名、同階層配置で実装する"
+  default_prompt: "Vitestのユニットテストを実装・修正してください。rootのVitestを前提にpnpm testで実行できるようにしてください。テストファイルは実装ファイルと同じディレクトリに配置し、ファイル名は {実装ファイル名}.test.[ts,tsx] にしてください。共有fixtureは @fixtures/... でimportしてください。AAAパターン（Arrange/Act/Assertコメント必須）で記述し、itではなくtestを使い、テスト名は日本語にしてください。"

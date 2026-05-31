@@ -5,6 +5,7 @@
 - TypeScript execution model: workspace packages expose `src/*.ts`; quality checks use `tsc --noEmit`, and app artifact generation should use explicit script names rather than a generic `build`.
 - Linter: oxlint.
 - Formatter: oxfmt.
+- Test runner: Vitest at the workspace root.
 - Web app: Hono + Inertia.js + React; Hono/Inertia bridge: `@hono/inertia`.
 - Web dev server: Vite with `@hono/vite-dev-server`; root app served from `apps/web/src/server/app.ts`.
 - React Compiler: enabled through `@vitejs/plugin-react` `reactCompilerPreset` and `@rolldown/plugin-babel`.
