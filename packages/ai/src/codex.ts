@@ -1,19 +1,19 @@
 import { Codex, type CodexOptions, type ThreadOptions } from "@openai/codex-sdk";
 
-/** Codex SDK に渡す競馬予想リクエスト。 */
-export interface CodexRaceAnalysisRequest {
-  /** Codex に渡す分析プロンプト。 */
+/** Codex SDK に渡すJSON生成リクエスト。 */
+export interface CodexJsonRequest {
+  /** Codex に渡すプロンプト。 */
   prompt: string;
   /** Codex の structured output として要求する JSON Schema。 */
   outputSchema: unknown;
-  /** この分析だけで使う Codex モデル名。 */
+  /** この実行だけで使う Codex モデル名。 */
   model?: string | undefined;
 }
 
-/** 競馬予想を生成する AI 実行基盤。 */
-export interface CodexRaceAnalysisRuntime {
-  /** プロンプトと出力スキーマから Prediction の元になる未検証値を生成する。 */
-  generatePrediction: (request: CodexRaceAnalysisRequest) => Promise<unknown>;
+/** Codex を使って構造化JSONを生成する AI 実行基盤。 */
+export interface CodexJsonRuntime {
+  /** プロンプトと出力スキーマから未検証のJSON値を生成する。 */
+  generateJson: (request: CodexJsonRequest) => Promise<unknown>;
 }
 
 /** Codex SDK runtime の初期化オプション。 */
@@ -31,14 +31,12 @@ export interface CodexSdkRuntimeOptions {
 }
 
 /** Codex SDK を使う競馬予想 runtime を作成する。 */
-export const createCodexSdkRuntime = (
-  options: CodexSdkRuntimeOptions = {}
-): CodexRaceAnalysisRuntime => {
+export const createCodexSdkRuntime = (options: CodexSdkRuntimeOptions = {}): CodexJsonRuntime => {
   const codex = new Codex(buildCodexOptions(options));
 
   return {
-    generatePrediction: async (request) => {
-      // 1分析ごとに thread を分け、プロンプト間の文脈混入を避ける。
+    generateJson: async (request) => {
+      // 1実行ごとに thread を分け、プロンプト間の文脈混入を避ける。
       const thread = codex.startThread(buildThreadOptions(request, options));
       const turn = await thread.run(request.prompt, { outputSchema: request.outputSchema });
       return parseCodexJson(turn.finalResponse);
@@ -48,7 +46,7 @@ export const createCodexSdkRuntime = (
 
 /** Codex thread の実行オプションを組み立てる。 */
 const buildThreadOptions = (
-  request: CodexRaceAnalysisRequest,
+  request: CodexJsonRequest,
   options: CodexSdkRuntimeOptions
 ): ThreadOptions => {
   const threadOptions: ThreadOptions = {
