@@ -1,11 +1,11 @@
 import {
   parseRaceSourceSnapshot,
   type RaceSourceSnapshot,
-  type SourcePageLink,
   type SourcePageSnapshot
 } from "@keiba-ai-assistant/models";
 import { createBrowserSession } from "@keiba-ai-assistant/scraper/netkeiba/browser";
 import { detectNetkeibaRestriction } from "@keiba-ai-assistant/scraper/netkeiba/access-control";
+import { findHorseDetailLinks } from "@keiba-ai-assistant/scraper/netkeiba/horse-detail-link";
 import { waitForNextPage } from "@keiba-ai-assistant/scraper/netkeiba/rate-limit";
 import {
   createSourcePageSnapshot,
@@ -86,35 +86,6 @@ const collectHorseDetailPages = async (
   }
 
   return snapshots;
-};
-
-/** レースページ内のリンクから、馬詳細ページらしいURLだけを重複なく抽出する。 */
-const findHorseDetailLinks = (racePage: SourcePageSnapshot): SourcePageLink[] => {
-  const seen = new Set<string>();
-  const horseLinks: SourcePageLink[] = [];
-
-  for (const link of racePage.links) {
-    const href = normalizeHorseDetailHref(link.href);
-    if (href === null || seen.has(href)) {
-      continue;
-    }
-
-    seen.add(href);
-    horseLinks.push({ ...link, href });
-  }
-
-  return horseLinks;
-};
-
-/** netKeibaの馬詳細ページURLであれば正規化済みhrefを返す。 */
-const normalizeHorseDetailHref = (href: string): string | null => {
-  const url = new URL(href);
-  if (!/\/horse\/\d+\/?/.test(url.pathname)) {
-    return null;
-  }
-
-  url.hash = "";
-  return url.toString();
 };
 
 /** snapshot 内にアクセス制限や警告があれば取得を停止する。 */
