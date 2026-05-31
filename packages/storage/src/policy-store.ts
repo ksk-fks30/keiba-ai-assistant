@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { parsePredictionPolicy, type PredictionPolicy } from "@keiba-ai-assistant/models";
+import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 
 export interface PolicyStoreOptions {
   /** 読み込む予想方針ファイルのパス。未指定時は `policies/main.md` を使用する。 */
@@ -34,9 +35,4 @@ export const readPredictionPolicy = async (
     }
     throw error;
   }
-};
-
-/** fs 系 API の ENOENT エラーかどうかを判定する。 */
-const isMissingFileError = (error: unknown): boolean => {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
 };

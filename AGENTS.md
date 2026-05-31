@@ -83,6 +83,7 @@ keiba-ai-assistant/
         commands/
           serve.ts
           collect.ts
+          import-race.ts
           policy.ts
           analyze.ts
           ask.ts
@@ -101,6 +102,7 @@ keiba-ai-assistant/
         pedigree.ts
         horse-evaluation.ts
         prediction.ts
+        prediction-draft.ts
         qa.ts
         policy.ts
         index.ts
@@ -136,6 +138,7 @@ keiba-ai-assistant/
         cache-store.ts
         policy-store.ts
         qa-store.ts
+        file-system.ts
         index.ts
 
   policies/
@@ -185,6 +188,7 @@ keiba-ai-assistant/
 ```text
 keiba-ai-assistant serve
 keiba-ai-assistant collect --race-url <url>
+keiba-ai-assistant import-race --race-json <path> [--runs-dir <path>]
 keiba-ai-assistant policy
 keiba-ai-assistant analyze --race-id <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
 keiba-ai-assistant ask --race-id <race-id> <question>
@@ -253,6 +257,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 - `prediction.json` の保存と読込
 - `qa.jsonl` の追記と読込
 - `thread.json` と `metadata.json` の保存と読込
+- ファイル存在確認や ENOENT 判定など、ローカルファイルI/Oの共通処理
 
 `packages/storage` は永続化形式を隠蔽し、web/cliや他パッケージがファイルパスの詳細に依存しすぎないようにする。
 
@@ -273,7 +278,11 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 ## AI分析仕様
 
 - AI分析にはCodex SDKを使用する。
-- `packages/ai` の Codex SDK runtime は `@openai/codex-sdk` を使用し、分析時は structured output schema を渡して `Prediction` 形式のJSON出力を要求する。
+- `packages/ai` の Codex SDK runtime は `@openai/codex-sdk` を使用し、分析時は `packages/models` の `predictionDraftSchema` から生成した structured output schema を渡して `PredictionDraft` 形式のJSON出力を要求する。
+- Codex SDK分析は、ローカルPCに導入済みでChatGPTログイン済みのCodex CLIを前提にする。
+- Codex SDKにはAPI keyや独自の環境変数を渡さず、Codex CLIの通常の認証状態を使用する。
+- `generatedAt` はAIに生成させず、Codex SDKから返った `PredictionDraft` にアプリ側で付与して `Prediction` とする。
+- `betCandidates[].stakeWeight` は買い目全体を100とした0から100の整数とする。
 - Codex SDKから返った値は保存前に必ず `parsePrediction` を通す。
 - 分析用 Codex SDK thread はファイル変更を行わない前提で `read-only` sandbox、`approvalPolicy: "never"`、`webSearchMode: "disabled"` を使用する。
 - Webページを直接AIに読ませて予想させず、取得済みデータを `packages/models` のZodスキーマに沿って構造化してから分析する。

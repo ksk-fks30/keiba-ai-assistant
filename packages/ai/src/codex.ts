@@ -18,14 +18,10 @@ export interface CodexRaceAnalysisRuntime {
 
 /** Codex SDK runtime の初期化オプション。 */
 export interface CodexSdkRuntimeOptions {
-  /** Codex SDK に明示的に渡す API キー。 */
-  apiKey?: string | undefined;
   /** Codex SDK の接続先を差し替える場合の base URL。 */
   baseUrl?: string | undefined;
   /** Codex SDK に渡す追加設定。 */
   config?: CodexOptions["config"] | undefined;
-  /** Codex SDK に渡す環境変数。 */
-  env?: CodexOptions["env"] | undefined;
   /** runtime 全体の既定モデル名。 */
   model?: string | undefined;
   /** Codex thread の作業ディレクトリ。 */
@@ -80,17 +76,11 @@ const buildThreadOptions = (
 const buildCodexOptions = (options: CodexSdkRuntimeOptions): CodexOptions => {
   const codexOptions: CodexOptions = {};
 
-  if (options.apiKey !== undefined) {
-    codexOptions.apiKey = options.apiKey;
-  }
   if (options.baseUrl !== undefined) {
     codexOptions.baseUrl = options.baseUrl;
   }
   if (options.config !== undefined) {
     codexOptions.config = options.config;
-  }
-  if (options.env !== undefined) {
-    codexOptions.env = options.env;
   }
 
   return codexOptions;

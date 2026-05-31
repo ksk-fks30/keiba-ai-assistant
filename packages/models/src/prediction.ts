@@ -11,14 +11,19 @@ export const predictionSchema = z.object({
   // 出走馬ごとの評価。
   evaluations: z.array(horseEvaluationSchema),
   // 推奨する買い目候補。
-  betCandidates: z.array(betCandidateSchema).default([]),
+  betCandidates: z.array(betCandidateSchema),
   // 予想を生成した日時。
-  generatedAt: z.string(),
-  // 予想生成に使用したAIモデルの識別子。
-  model: z.string().optional()
+  generatedAt: z.string()
 });
 
 export type Prediction = z.infer<typeof predictionSchema>;
+
+/** Prediction ZodスキーマからJSON Schemaを生成する。 */
+export const buildPredictionJsonSchema = (): unknown => {
+  const jsonSchema = z.toJSONSchema(predictionSchema);
+  delete jsonSchema.$schema;
+  return jsonSchema;
+};
 
 export const parsePrediction = (value: unknown): Prediction => {
   return predictionSchema.parse(value);

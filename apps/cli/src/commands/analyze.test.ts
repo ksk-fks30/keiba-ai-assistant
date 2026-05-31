@@ -131,8 +131,7 @@ const createPrediction = (raceId: string): Prediction => {
         stakeWeight: 40
       }
     ],
-    generatedAt: "2026-05-31T14:40:00+09:00",
-    model: "fixture-codex-model"
+    generatedAt: "2026-05-31T14:40:00+09:00"
   };
 };
 

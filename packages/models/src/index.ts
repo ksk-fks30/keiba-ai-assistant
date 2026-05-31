@@ -5,6 +5,7 @@ export * from "@keiba-ai-assistant/models/past-performance";
 export * from "@keiba-ai-assistant/models/pedigree";
 export * from "@keiba-ai-assistant/models/policy";
 export * from "@keiba-ai-assistant/models/prediction";
+export * from "@keiba-ai-assistant/models/prediction-draft";
 export * from "@keiba-ai-assistant/models/qa";
 export * from "@keiba-ai-assistant/models/race";
 export * from "@keiba-ai-assistant/models/race-surface";
