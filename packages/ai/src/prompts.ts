@@ -1,4 +1,8 @@
-import type { PredictionPolicy, Race } from "@keiba-ai-assistant/models";
+import {
+  buildPredictionDraftJsonSchema,
+  type PredictionPolicy,
+  type Race
+} from "@keiba-ai-assistant/models";
 
 /** 競馬予想プロンプトの組み立てに必要な入力。 */
 export interface RaceAnalysisPromptInput {
@@ -8,15 +12,18 @@ export interface RaceAnalysisPromptInput {
   policy: PredictionPolicy;
 }
 
-/** 予想方針とレースデータを、Codex が Prediction JSON を返すためのプロンプトへ変換する。 */
+/** 予想方針とレースデータを、Codex が予想下書きJSONを返すためのプロンプトへ変換する。 */
 export const buildRaceAnalysisPrompt = (input: RaceAnalysisPromptInput): string => {
   return [
     "あなたは競馬予想アシスタントです。",
     // 取得済みデータだけで判断させ、Codex 側の追加調査や推測を混ぜない。
-    "与えられた予想方針と構造化済みレースデータだけを使って、Prediction JSONを生成してください。",
+    "与えられた予想方針と構造化済みレースデータだけを使って、PredictionDraft JSONを生成してください。",
+    "PredictionDraft JSON は models の PredictionDraft Zodスキーマに通る形にしてください。",
     "出力はJSONのみとし、Markdownや補足文は含めないでください。",
     "raceId は入力レースの id と同じ値にしてください。",
-    "generatedAt は現在時刻をISO 8601文字列で設定してください。",
+    "generatedAt はアプリ側で付与するため、出力に含めないでください。",
+    "betCandidates の各要素には type, horses, reason, stakeWeight を必ず含めてください。",
+    "stakeWeight は0から100の整数で、全 betCandidates の合計が100になるようにしてください。",
     "",
     "予想方針:",
     input.policy.content,
@@ -26,59 +33,8 @@ export const buildRaceAnalysisPrompt = (input: RaceAnalysisPromptInput): string 
   ].join("\n");
 };
 
-/** Codex structured output 用の Prediction JSON Schema を返す。 */
+/** Codex structured output 用の PredictionDraft JSON Schema を返す。 */
 export const buildPredictionOutputSchema = () => {
-  return {
-    type: "object",
-    properties: {
-      raceId: { type: "string" },
-      summary: { type: "string" },
-      evaluations: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            horseId: { type: "string" },
-            mark: {
-              type: "string",
-              enum: ["favorite", "second", "third", "longshot", "watch", "dismiss"]
-            },
-            score: { type: "number", minimum: 0, maximum: 100 },
-            reasons: {
-              type: "array",
-              items: { type: "string" }
-            },
-            risks: {
-              type: "array",
-              items: { type: "string" }
-            }
-          },
-          required: ["horseId", "mark", "score", "reasons", "risks"],
-          additionalProperties: false
-        }
-      },
-      betCandidates: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            type: { type: "string" },
-            horses: {
-              type: "array",
-              items: { type: "string" }
-            },
-            reason: { type: "string" },
-            stakeWeight: { type: "number", minimum: 0, maximum: 100 }
-          },
-          required: ["type", "horses"],
-          additionalProperties: false
-        }
-      },
-      generatedAt: { type: "string" },
-      model: { type: "string" }
-    },
-    // 保存時の最終的な正しさは models の parsePrediction で担保する。
-    required: ["raceId", "summary", "evaluations", "betCandidates", "generatedAt"],
-    additionalProperties: false
-  } as const;
+  // Codex SDK には AI 出力用の下書きスキーマを渡し、生成日時はアプリ側で補う。
+  return buildPredictionDraftJsonSchema();
 };

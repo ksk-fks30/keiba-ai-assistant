@@ -78,8 +78,7 @@ describe("run-store", () => {
           stakeWeight: 40
         }
       ],
-      generatedAt: "2026-05-31T13:30:00+09:00",
-      model: "fixture-model"
+      generatedAt: "2026-05-31T13:30:00+09:00"
     };
 
     // Act

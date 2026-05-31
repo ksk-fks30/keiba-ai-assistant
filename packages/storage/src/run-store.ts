@@ -1,6 +1,7 @@
-import { access, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parsePrediction, parseRace, type Prediction, type Race } from "@keiba-ai-assistant/models";
+import { fileExists, isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 
 export interface RunStoreOptions {
   /** run データを保存するルートディレクトリ。未指定時は `runs` を使用する。 */
@@ -127,19 +128,6 @@ const readRunSummary = async (
   };
 };
 
-/** 指定したパスにファイルまたはディレクトリが存在するかを返す。 */
-const fileExists = async (path: string): Promise<boolean> => {
-  try {
-    await access(path);
-    return true;
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return false;
-    }
-    throw error;
-  }
-};
-
 /** JSONファイルを読み込み、構造検証前の unknown として返す。 */
 const readJson = async (path: string): Promise<unknown> => {
   return JSON.parse(await readFile(path, "utf8")) as unknown;
@@ -148,9 +136,4 @@ const readJson = async (path: string): Promise<unknown> => {
 /** 値を整形済みJSONとして指定パスに書き込む。 */
 const writeJson = async (path: string, value: unknown): Promise<void> => {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-};
-
-/** fs 系 API の ENOENT エラーかどうかを判定する。 */
-const isMissingFileError = (error: unknown): boolean => {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
 };

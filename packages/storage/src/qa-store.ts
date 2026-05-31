@@ -1,6 +1,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseQaEntry, type QaEntry } from "@keiba-ai-assistant/models";
+import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 import {
   ensureRunDir,
   getRunDir,
@@ -27,7 +28,7 @@ export const readQaEntries = async (
       .filter(Boolean)
       .map((line) => parseQaEntry(JSON.parse(line) as unknown));
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isMissingFileError(error)) {
       return [];
     }
     throw error;

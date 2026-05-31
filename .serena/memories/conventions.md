@@ -22,8 +22,10 @@
   - `apps/web` and `apps/cli` may depend on `packages/*`.
   - `packages/*` must not depend on `apps/*`.
 - Keep persistence out of `packages/scraper` and `packages/ai`; route it through `packages/storage`.
+- Common local file I/O helpers such as file existence checks and ENOENT detection live in `packages/storage/src/file-system.ts`.
 - Prediction policy file reading is handled by `packages/storage` via `readPredictionPolicy`; AI receives `PredictionPolicy` as input and does not read policy files directly.
-- Codex SDK analysis uses `@openai/codex-sdk`; request structured output for `Prediction`, parse the result with `parsePrediction` before storage, and run Codex analysis threads read-only with approval never and web search disabled.
+- Codex SDK analysis uses `@openai/codex-sdk`; analysis assumes a locally installed and ChatGPT-authenticated Codex CLI, does not pass API keys or custom environment variables to the SDK, requests structured output generated from `packages/models` `predictionDraftSchema`, parses the draft, adds `generatedAt` in the app, validates the final value with `parsePrediction` before storage, and runs Codex analysis threads read-only with approval never and web search disabled.
+- `betCandidates[].stakeWeight` is an integer from 0 to 100 representing relative stake allocation across all bet candidates.
 - `packages/models/src` uses one schema per file. Each model file exports `xxxSchema`, `Xxx`, and `parseXxx(value: unknown): Xxx`; schema values use lower camel case, and model fields should have comments explaining what they represent.
 - Shared fictional development race fixtures live under `fixtures/races/`; import them as `@fixtures/...` in tests. Fixtures must parse through `packages/models` when applicable and must not contain real race-derived data.
 - Unit tests use root Vitest and run with `pnpm test`. Follow `.agents/skills/unit-test-writer`: use `test()`, Japanese test names, and AAA comments.

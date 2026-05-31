@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import sampleRace from "@fixtures/races/sample-race.json";
-import { parsePredictionPolicy, parseRace, type Prediction } from "@keiba-ai-assistant/models";
+import {
+  parsePredictionPolicy,
+  parseRace,
+  type Prediction,
+  type PredictionDraft
+} from "@keiba-ai-assistant/models";
 import { analyzeRace } from "@keiba-ai-assistant/ai/analyze-race";
 import type {
   CodexRaceAnalysisRequest,
@@ -16,12 +21,14 @@ describe("analyzeRace", () => {
       content: "芝マイルでは持続力を重視する。",
       loadedAt: "2026-05-31T14:30:00+09:00"
     });
-    const prediction = createPrediction(race.id);
+    const generatedAt = "2026-05-31T05:40:00.000Z";
+    const predictionDraft = createPredictionDraft(race.id);
+    const prediction = createPrediction(race.id, generatedAt);
     const requests: CodexRaceAnalysisRequest[] = [];
     const runtime: CodexRaceAnalysisRuntime = {
       generatePrediction: async (request) => {
         requests.push(request);
-        return prediction;
+        return predictionDraft;
       }
     };
 
@@ -30,6 +37,7 @@ describe("analyzeRace", () => {
       race,
       policy,
       model: "fixture-codex-model",
+      now: () => new Date(generatedAt),
       runtime
     });
 
@@ -40,6 +48,7 @@ describe("analyzeRace", () => {
     expect(requests[0]?.prompt).toContain(race.id);
     expect(requests[0]?.model).toBe("fixture-codex-model");
     expect(JSON.stringify(requests[0]?.outputSchema)).toContain("favorite");
+    expect(JSON.stringify(requests[0]?.outputSchema)).not.toContain("generatedAt");
   });
 
   test("Codex runtime の出力が Prediction でなければ失敗する", async () => {
@@ -64,8 +73,8 @@ describe("analyzeRace", () => {
   });
 });
 
-/** テストで使う最小限の Prediction fixture を作る。 */
-const createPrediction = (raceId: string): Prediction => {
+/** テストで使う最小限の PredictionDraft fixture を作る。 */
+const createPredictionDraft = (raceId: string): PredictionDraft => {
   return {
     raceId,
     summary: "架空レースでは先行力と持続力を重視する。",
@@ -85,8 +94,11 @@ const createPrediction = (raceId: string): Prediction => {
         reason: "軸として最も安定している。",
         stakeWeight: 40
       }
-    ],
-    generatedAt: "2026-05-31T14:40:00+09:00",
-    model: "fixture-codex-model"
+    ]
   };
+};
+
+/** テストで使う最小限の Prediction fixture を作る。 */
+const createPrediction = (raceId: string, generatedAt: string): Prediction => {
+  return { ...createPredictionDraft(raceId), generatedAt };
 };
