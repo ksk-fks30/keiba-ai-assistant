@@ -1,11 +1,19 @@
 import {
   buildPredictionDraftJsonSchema,
   buildQaAnswerDraftJsonSchema,
+  buildRaceDraftJsonSchema,
   type Prediction,
   type PredictionPolicy,
   type QaEntry,
-  type Race
+  type Race,
+  type RaceSourceSnapshot
 } from "@keiba-ai-assistant/models";
+
+/** レース取得プロンプトの組み立てに必要な入力。 */
+export interface RaceExtractionPromptInput {
+  /** ブラウザ操作で取得した、レースページと馬詳細ページの軽量snapshot。 */
+  snapshot: RaceSourceSnapshot;
+}
 
 /** 競馬予想プロンプトの組み立てに必要な入力。 */
 export interface RaceAnalysisPromptInput {
@@ -28,6 +36,30 @@ export interface RaceQuestionPromptInput {
   /** 今回の追加質問。 */
   question: string;
 }
+
+/** ページsnapshotを、Codex がレース取得下書きJSONを返すためのプロンプトへ変換する。 */
+export const buildRaceExtractionPrompt = (input: RaceExtractionPromptInput): string => {
+  return [
+    "あなたは競馬データ構造化アシスタントです。",
+    // AIには抽出済みsnapshotの解釈だけを任せ、追加取得や自由巡回をさせない。
+    "与えられたページsnapshotだけを使って、RaceDraft JSONを生成してください。",
+    "追加取得や自由巡回は行わないでください。",
+    "RaceDraft JSON は models の RaceDraft Zodスキーマに通る形にしてください。",
+    "出力はJSONのみとし、Markdownや補足文は含めないでください。",
+    "sourceUrl と collectedAt はアプリ側で付与するため、出力に含めないでください。",
+    "id はURL内の race_id などから読み取れる安定したレースIDにしてください。",
+    "surface は turf, dirt, jump, unknown のいずれかに正規化してください。",
+    "distanceMeters はメートル単位の整数にしてください。",
+    "horses は出走表から読み取れる馬だけを入れ、各要素には id, name, horseNumber, jockey, pedigree, pastPerformances を必ず含めてください。",
+    "馬IDがリンクから読み取れる場合はそれを使い、読み取れない場合は horse-number-{馬番} の形にしてください。",
+    "pedigree は馬詳細ページから sire, dam, damSire, familyNotes を読み取ってください。不明な文字列項目は空文字、familyNotes は空配列にしてください。",
+    "pastPerformances は馬詳細ページから直近5走までを新しい順に読み取ってください。不明な数値項目は null、不明な文字列項目は空文字、surface は turf, dirt, jump, unknown のいずれかにしてください。",
+    "必須項目はsnapshot内の明示テキストだけから読み取り、根拠のない推測で埋めないでください。",
+    "",
+    "ページsnapshot:",
+    JSON.stringify(input.snapshot, null, 2)
+  ].join("\n");
+};
 
 /** 予想方針とレースデータを、Codex が予想下書きJSONを返すためのプロンプトへ変換する。 */
 export const buildRaceAnalysisPrompt = (input: RaceAnalysisPromptInput): string => {
@@ -77,6 +109,12 @@ export const buildRaceQuestionPrompt = (input: RaceQuestionPromptInput): string 
     "今回の質問:",
     input.question
   ].join("\n");
+};
+
+/** Codex structured output 用の RaceDraft JSON Schema を返す。 */
+export const buildRaceDraftOutputSchema = () => {
+  // 取得日時とURLはブラウザ操作側の事実を使うため、AIにはレース本文だけを要求する。
+  return buildRaceDraftJsonSchema();
 };
 
 /** Codex structured output 用の PredictionDraft JSON Schema を返す。 */
