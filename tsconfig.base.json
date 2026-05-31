@@ -8,9 +8,11 @@
     "isolatedModules": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
+      "@fixtures/*": ["./fixtures/*"],
       "@keiba-ai-assistant/ai": ["./packages/ai/src/index.ts"],
       "@keiba-ai-assistant/ai/*": ["./packages/ai/src/*"],
       "@keiba-ai-assistant/cli/*": ["./apps/cli/src/*"],

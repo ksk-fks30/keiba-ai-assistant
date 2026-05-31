@@ -10,5 +10,6 @@
 - Expected quality commands once scripts are added:
   - `pnpm typecheck`
   - `pnpm lint`
+  - `pnpm test`
 - Serena memory sanity check from repo root: `serena memories check`.
 - Darwin shell is zsh. Use `rg` / `rg --files` for search and file discovery.

@@ -14,10 +14,10 @@
 - 実装言語はTypeScript 6系である。
 - workspace内の実行・参照はTypeScriptソースを前提とし、内部packageは `dist/*.js` や `.d.ts` を公開面にしない。
 - workspace packageの `exports` は `src/*.ts` を指す。
-- 標準の品質確認は `typecheck` と `lint` で行い、`build` scriptは置かない。
+- 標準の品質確認は `typecheck`、`lint`、`test` で行い、`build` scriptは置かない。
 - `apps/*` は必要に応じてアプリ成果物を生成してよいが、その場合は `bundle` など用途が分かるscript名を追加する。
 - リンターはoxlint、フォーマッターはoxfmtである。
-- ルートに置く外部依存はTypeScript、oxlint、oxfmtである。
+- ルートに置く外部依存はTypeScript、oxlint、oxfmt、Vitestである。
 - その他の外部依存は、実際に利用するworkspace packageへ `pnpm --filter` で追加する。
 - モノレポ構成は `apps/web`、`apps/cli`、`packages/models`、`packages/scraper`、`packages/ai`、`packages/storage` である。
 - データモデルとZodスキーマは `packages/models` に集約する。
@@ -40,6 +40,7 @@ keiba-ai-assistant/
   tsconfig.base.json
   .gitignore
   .env.example
+  vitest.config.ts
 
   apps/
     web/
@@ -143,6 +144,17 @@ keiba-ai-assistant/
 
   data/
     .gitkeep
+
+  fixtures/
+    races/
+      sample-race.json
+
+  .agents/
+    skills/
+      unit-test-writer/
+        SKILL.md
+        agents/
+          openai.yaml
 ```
 
 ## Webアプリ構成
@@ -180,8 +192,10 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 以下は `.oxlintrc.json`、`.oxfmtrc.json`、`tsconfig.base.json`、各package scriptに反映されている。
 
 - 内部コードの相対import/exportは禁止し、`@keiba-ai-assistant/...` から始まるworkspace package importを使用する。
+- 共有fixtureはworkspace packageではないため、`@fixtures/...` から始まるfixture専用importを使用する。
 - TypeScriptのmodule resolutionはBundlerを使用し、内部import/exportでは拡張子なしのspecifierを使用する。
 - TypeScriptの検査は `tsc --noEmit` で行う。package単位のJSや宣言ファイルは生成しない。
+- ユニットテストはrootのVitestで実行し、`pnpm test` を使用する。
 - 型だけを参照するimportは `import type` を使用する。
 - importの重複は禁止する。
 - 文字列リテラルはダブルクォートを使用する。
@@ -307,6 +321,16 @@ data/
 
 `runs/` と `data/` の中身はGit管理しない。`.gitkeep` のみGit管理してよい。
 
+## Fixture仕様
+
+開発用の架空レースデータは `fixtures/races/` に置く。fixture は実在レース由来の情報を含めず、`packages/models` のZodスキーマで検証できる形にする。共有fixtureを参照する場合は `@fixtures/...` importを使用する。
+
+## テスト仕様
+
+Vitest はrootの開発依存として管理し、workspace全体のテストは `pnpm test` で実行する。ユニットテストを書く際は `.agents/skills/unit-test-writer` の方針に従う。
+
+テストファイルは原則として実装ファイルと同じディレクトリに `{実装ファイル名}.test.ts` または `{実装ファイル名}.test.tsx` として置く。テストでは `it()` ではなく `test()` を使い、テスト名は日本語で書く。各テストは `// Arrange`、`// Act`、`// Assert` コメントで構成する。
+
 `.gitignore` には最低限以下を含める。
 
 ```gitignore
@@ -347,6 +371,7 @@ data/*
 - 既存ファイルを編集する前には必ず読み直す。
 - `.serena` ディレクトリが存在する場合は、コード参照と修正にSerena MCP Serverを使用する。
 - 実装タスクを終える前には必ず `pnpm lint` と `pnpm typecheck` を実行する。
+- テストを追加または変更した場合は `pnpm test` も実行する。
 - 型定義とZodスキーマは `packages/models` を中心に置き、入出力境界で検証する。
 - `packages/*` にUI依存を入れない。
 - `apps/web` 固有のReactコンポーネントを `packages/*` に置かない。
