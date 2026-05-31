@@ -1,0 +1,4 @@
+interface:
+  display_name: "Keiba Artifact Reviewer"
+  short_description: "レース分析とQ&Aの生成成果物を精査する"
+  default_prompt: "Use $keiba-artifact-reviewer to inspect generated race analysis and Q&A artifacts."

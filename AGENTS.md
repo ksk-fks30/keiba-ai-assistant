@@ -191,7 +191,8 @@ keiba-ai-assistant collect --race-url <url>
 keiba-ai-assistant import-race --race-json <path> [--runs-dir <path>]
 keiba-ai-assistant policy
 keiba-ai-assistant analyze --race-id <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
-keiba-ai-assistant ask --race-id <race-id> <question>
+keiba-ai-assistant ask --race-id <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>] <question>
+keiba-ai-assistant qa-history --race-id <race-id> [--runs-dir <path>]
 ```
 
 ## コード品質設定
@@ -284,6 +285,7 @@ keiba-ai-assistant ask --race-id <race-id> <question>
 - `generatedAt` はAIに生成させず、Codex SDKから返った `PredictionDraft` にアプリ側で付与して `Prediction` とする。
 - `betCandidates[].stakeWeight` は買い目全体を100とした0から100の整数とする。
 - Codex SDKから返った値は保存前に必ず `parsePrediction` を通す。
+- 追加質問では、AIには `QaAnswerDraft` として回答本文だけを生成させ、`QaEntry` の `id`、`raceId`、`question`、`createdAt` はアプリ側で付与する。
 - 分析用 Codex SDK thread はファイル変更を行わない前提で `read-only` sandbox、`approvalPolicy: "never"`、`webSearchMode: "disabled"` を使用する。
 - Webページを直接AIに読ませて予想させず、取得済みデータを `packages/models` のZodスキーマに沿って構造化してから分析する。
 - 予想方針は `policies/main.md` に記述する。

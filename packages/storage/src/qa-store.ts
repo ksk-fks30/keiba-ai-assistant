@@ -1,6 +1,6 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parseQaEntry, type QaEntry } from "@keiba-ai-assistant/models";
+import { parseQaAnswerDraft, parseQaEntry, type QaEntry } from "@keiba-ai-assistant/models";
 import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 import {
   ensureRunDir,
@@ -13,7 +13,11 @@ export const appendQaEntry = async (
   options: RunStoreOptions = {}
 ): Promise<void> => {
   const runDir = await ensureRunDir(entry.raceId, options);
-  await appendFile(join(runDir, "qa.jsonl"), `${JSON.stringify(parseQaEntry(entry))}\n`, "utf8");
+  await appendFile(
+    join(runDir, "qa.jsonl"),
+    `${JSON.stringify(normalizeQaEntry(entry))}\n`,
+    "utf8"
+  );
 };
 
 export const readQaEntries = async (
@@ -26,11 +30,32 @@ export const readQaEntries = async (
     return content
       .split("\n")
       .filter(Boolean)
-      .map((line) => parseQaEntry(JSON.parse(line) as unknown));
+      .map((line) => normalizeQaEntry(JSON.parse(line) as unknown));
   } catch (error) {
     if (isMissingFileError(error)) {
       return [];
     }
     throw error;
+  }
+};
+
+/** 保存済みQ&Aを検証し、answer 内の二重JSON文字列を回答本文へ正規化する。 */
+const normalizeQaEntry = (value: unknown): QaEntry => {
+  const entry = parseQaEntry(value);
+
+  return parseQaEntry({
+    ...entry,
+    answer: normalizeAnswer(entry.answer)
+  });
+};
+
+/** answer が `{\"answer\":\"...\"}` 形式の文字列なら本文だけを取り出す。 */
+const normalizeAnswer = (answer: string): string => {
+  const trimmedAnswer = answer.trim();
+  try {
+    const value = JSON.parse(trimmedAnswer) as unknown;
+    return parseQaAnswerDraft(value).answer;
+  } catch {
+    return answer;
   }
 };

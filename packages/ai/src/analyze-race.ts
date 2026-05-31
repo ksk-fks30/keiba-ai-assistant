@@ -8,7 +8,7 @@ import {
 } from "@keiba-ai-assistant/models";
 import {
   createCodexSdkRuntime,
-  type CodexRaceAnalysisRuntime,
+  type CodexJsonRuntime,
   type CodexSdkRuntimeOptions
 } from "@keiba-ai-assistant/ai/codex";
 import {
@@ -27,7 +27,7 @@ export interface AnalyzeRaceInput {
   /** 予想生成時刻を返す関数。テストや再実行で日時を固定する場合に使う。 */
   now?: () => Date;
   /** テストや差し替え実行で使う AI runtime。未指定なら Codex SDK runtime を使う。 */
-  runtime?: CodexRaceAnalysisRuntime;
+  runtime?: CodexJsonRuntime;
 }
 
 /** レースデータと予想方針を Codex に渡し、Prediction として検証済みの分析結果を返す。 */
@@ -36,7 +36,7 @@ export const analyzeRace = async (input: AnalyzeRaceInput): Promise<Prediction> 
   const runtime = input.runtime ?? createCodexSdkRuntime(buildCodexSdkRuntimeOptions(input));
 
   // Codex には生成日時を含まない下書きを要求し、保存前にアプリ側で生成日時を付与する。
-  const value = await runtime.generatePrediction({
+  const value = await runtime.generateJson({
     prompt,
     outputSchema: buildPredictionOutputSchema(),
     model: input.model

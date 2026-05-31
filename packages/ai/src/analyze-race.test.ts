@@ -7,10 +7,7 @@ import {
   type PredictionDraft
 } from "@keiba-ai-assistant/models";
 import { analyzeRace } from "@keiba-ai-assistant/ai/analyze-race";
-import type {
-  CodexRaceAnalysisRequest,
-  CodexRaceAnalysisRuntime
-} from "@keiba-ai-assistant/ai/codex";
+import type { CodexJsonRequest, CodexJsonRuntime } from "@keiba-ai-assistant/ai/codex";
 
 describe("analyzeRace", () => {
   test("Codex runtime の出力を Prediction として返せる", async () => {
@@ -24,9 +21,9 @@ describe("analyzeRace", () => {
     const generatedAt = "2026-05-31T05:40:00.000Z";
     const predictionDraft = createPredictionDraft(race.id);
     const prediction = createPrediction(race.id, generatedAt);
-    const requests: CodexRaceAnalysisRequest[] = [];
-    const runtime: CodexRaceAnalysisRuntime = {
-      generatePrediction: async (request) => {
+    const requests: CodexJsonRequest[] = [];
+    const runtime: CodexJsonRuntime = {
+      generateJson: async (request) => {
         requests.push(request);
         return predictionDraft;
       }
@@ -59,8 +56,8 @@ describe("analyzeRace", () => {
       content: "芝マイルでは持続力を重視する。",
       loadedAt: "2026-05-31T14:30:00+09:00"
     });
-    const runtime: CodexRaceAnalysisRuntime = {
-      generatePrediction: async () => {
+    const runtime: CodexJsonRuntime = {
+      generateJson: async () => {
         return { raceId: race.id };
       }
     };
