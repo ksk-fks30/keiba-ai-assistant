@@ -1,8 +1,9 @@
-import type { Prediction, QaEntry, Race } from "@keiba-ai-assistant/models";
+import type { Prediction, PredictionPolicy, QaEntry, Race } from "@keiba-ai-assistant/models";
 
 export interface AskRaceInput {
   race: Race;
   prediction: Prediction;
+  policy: PredictionPolicy;
   history: QaEntry[];
   question: string;
 }
