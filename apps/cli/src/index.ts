@@ -1,7 +1,7 @@
 #!/usr/bin/env -S tsx
 import { Command } from "commander";
 import { registerAnalyzeCommand } from "@keiba-ai-assistant/cli/commands/analyze";
-import { registerAskCommand } from "@keiba-ai-assistant/cli/commands/ask";
+import { registerAskCommand, registerQaHistoryCommand } from "@keiba-ai-assistant/cli/commands/ask";
 import { registerCollectCommand } from "@keiba-ai-assistant/cli/commands/collect";
 import { registerImportRaceCommand } from "@keiba-ai-assistant/cli/commands/import-race";
 import { registerPolicyCommand } from "@keiba-ai-assistant/cli/commands/policy";
@@ -20,5 +20,6 @@ registerPolicyCommand(program);
 registerImportRaceCommand(program);
 registerAnalyzeCommand(program);
 registerAskCommand(program);
+registerQaHistoryCommand(program);
 
 await program.parseAsync();
