@@ -1,10 +1,11 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parsePrediction, parseRace, type Prediction, type Race } from "@keiba-ai-assistant/models";
 import { fileExists, isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
+import { getWorkspacePath } from "@keiba-ai-assistant/storage/workspace-root";
 
 export interface RunStoreOptions {
-  /** run データを保存するルートディレクトリ。未指定時は `runs` を使用する。 */
+  /** run データを保存するルートディレクトリ。未指定時はリポジトリルートの `runs` を使用する。 */
   rootDir?: string;
 }
 
@@ -22,14 +23,14 @@ export interface RunSummary {
   updatedAt: string;
 }
 
-const defaultRootDir = "runs" as const;
+const defaultRunRootDirName = "runs" as const;
 const raceFileName = "race.json" as const;
 const predictionFileName = "prediction.json" as const;
 const qaFileName = "qa.jsonl" as const;
 
 /** 指定したレースIDに対応する run ディレクトリのパスを返す。 */
 export const getRunDir = (raceId: string, options: RunStoreOptions = {}): string => {
-  return join(options.rootDir ?? defaultRootDir, raceId);
+  return join(resolveRootDir(options), raceId);
 };
 
 /** 指定したレースIDに対応する run ディレクトリを作成する。 */
@@ -64,7 +65,7 @@ export const runExists = async (
 
 /** run ルート配下に存在する run ディレクトリの保存状態一覧を返す。 */
 export const listRuns = async (options: RunStoreOptions = {}): Promise<RunSummary[]> => {
-  const rootDir = options.rootDir ?? defaultRootDir;
+  const rootDir = resolveRootDir(options);
   try {
     const entries = await readdir(rootDir, { withFileTypes: true });
     const raceIds = entries
@@ -109,6 +110,28 @@ export const readPrediction = async (
 ): Promise<Prediction> => {
   const json = await readJson(join(getRunDir(raceId, options), predictionFileName));
   return parsePrediction(json);
+};
+
+/** 指定した run の既存分析結果とQ&A履歴を削除し、race.jsonだけを残せる状態にする。 */
+export const invalidateRunAnalysis = async (
+  raceId: string,
+  options: RunStoreOptions = {}
+): Promise<void> => {
+  const runDir = getRunDir(raceId, options);
+  await Promise.all([
+    rm(join(runDir, predictionFileName), { force: true }),
+    rm(join(runDir, qaFileName), { force: true })
+  ]);
+};
+
+/** run 保存先のルートディレクトリをオプションまたは workspace root から解決する。 */
+const resolveRootDir = (options: RunStoreOptions = {}): string => {
+  return options.rootDir ?? getDefaultRootDir();
+};
+
+/** workspace root 直下の `runs` をデフォルトの run 保存先として返す。 */
+const getDefaultRootDir = (): string => {
+  return getWorkspacePath(defaultRunRootDirName);
 };
 
 /** 指定した run ディレクトリ内の保存済みファイル状態を集約して返す。 */

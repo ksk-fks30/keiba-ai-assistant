@@ -59,7 +59,6 @@ describe("registerAskCommand", () => {
       "node",
       "test",
       "ask",
-      "--race-id",
       race.id,
       "--runs-dir",
       rootDir,
@@ -73,7 +72,13 @@ describe("registerAskCommand", () => {
 
     // Assert
     expect(actual).toEqual([previousEntry, nextEntry]);
-    expect(logs).toEqual([nextEntry.answer, `qa.jsonl に追記しました: ${nextEntry.id}`]);
+    expect(logs).toEqual([
+      `保存済みレースを読み込んでいます: ${race.id}`,
+      "Codexで追加質問に回答しています: 馬場が悪化した場合は？",
+      "qa.jsonl に回答を追記しています。",
+      nextEntry.answer,
+      `qa.jsonl に追記しました: ${nextEntry.id}`
+    ]);
   });
 });
 
@@ -92,15 +97,7 @@ describe("registerQaHistoryCommand", () => {
     });
 
     // Act
-    await program.parseAsync([
-      "node",
-      "test",
-      "qa-history",
-      "--race-id",
-      raceId,
-      "--runs-dir",
-      rootDir
-    ]);
+    await program.parseAsync(["node", "test", "qa-history", raceId, "--runs-dir", rootDir]);
 
     // Assert
     expect(logs).toEqual([
@@ -126,15 +123,7 @@ describe("registerQaHistoryCommand", () => {
     });
 
     // Act
-    await program.parseAsync([
-      "node",
-      "test",
-      "qa-history",
-      "--race-id",
-      raceId,
-      "--runs-dir",
-      rootDir
-    ]);
+    await program.parseAsync(["node", "test", "qa-history", raceId, "--runs-dir", rootDir]);
 
     // Assert
     expect(logs).toEqual([`Q&A履歴はありません: ${raceId}`]);

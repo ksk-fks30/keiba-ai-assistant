@@ -12,7 +12,7 @@ import {
 /** analyze コマンドが受け取る CLI オプション。 */
 interface AnalyzeCommandOptions {
   /** 分析対象の race id。 */
-  raceId: string;
+  raceId?: string | undefined;
   /** Codex SDK に渡すモデル名。 */
   model?: string | undefined;
   /** 予想方針ファイルのパス。 */
@@ -52,19 +52,40 @@ export const registerAnalyzeCommand = (
   program
     .command("analyze")
     .description("Analyze a collected race")
-    .requiredOption("--race-id <raceId>", "Race ID")
+    .argument("[raceId]", "Race ID")
+    .option("--race-id <raceId>", "Race ID")
     .option("--model <model>", "Codex model")
     .option("--policy-path <path>", "Prediction policy file path")
     .option("--runs-dir <path>", "Runs root directory")
-    .action(async (options: AnalyzeCommandOptions) => {
+    .action(async (raceId: string | undefined, options: AnalyzeCommandOptions) => {
       // 分析は保存済み run と予想方針を入力にし、Codex にはファイル取得を任せない。
+      const resolvedRaceId = resolveRaceId(raceId, options);
       const runStoreOptions = buildRunStoreOptions(options);
-      const race = await deps.readRace(options.raceId, runStoreOptions);
+      deps.log(`保存済みレースを読み込んでいます: ${resolvedRaceId}`);
+      const race = await deps.readRace(resolvedRaceId, runStoreOptions);
+      deps.log("予想方針を読み込んでいます。");
       const policy = await deps.readPredictionPolicy(buildPolicyStoreOptions(options));
+      deps.log("Codexで予想分析を実行しています。");
       const prediction = await deps.analyzeRace(buildAnalyzeRaceInput(race, policy, options));
+      deps.log("prediction.json を保存しています。");
       await deps.writePrediction(prediction, runStoreOptions);
       deps.log(`prediction.json を保存しました: ${prediction.raceId}`);
     });
+};
+
+/** 位置引数と互換オプションから分析対象race IDを決める。 */
+const resolveRaceId = (raceId: string | undefined, options: AnalyzeCommandOptions): string => {
+  if (raceId !== undefined && options.raceId !== undefined && raceId !== options.raceId) {
+    throw new Error("race ID は位置引数または --race-id のどちらか一方で指定してください。");
+  }
+  if (raceId !== undefined) {
+    return raceId;
+  }
+  if (options.raceId !== undefined) {
+    return options.raceId;
+  }
+
+  throw new Error("race ID を指定してください。例: pnpm keiba analyze <race-id>");
 };
 
 /** CLI オプションから run store の読み書き設定を組み立てる。 */
