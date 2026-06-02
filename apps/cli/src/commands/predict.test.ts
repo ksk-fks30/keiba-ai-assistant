@@ -1,11 +1,16 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "commander";
 import { afterEach, describe, expect, test } from "vitest";
-import { registerCollectCommand } from "@keiba-ai-assistant/cli/commands/collect";
-import { parseRace, type Race, type RaceSourceSnapshot } from "@keiba-ai-assistant/models";
-import { listRuns, readRace } from "@keiba-ai-assistant/storage";
+import { registerPredictCommand } from "@keiba-ai-assistant/cli/commands/predict";
+import {
+  parseRace,
+  type Prediction,
+  type Race,
+  type RaceSourceSnapshot
+} from "@keiba-ai-assistant/models";
+import { readPrediction, readRace } from "@keiba-ai-assistant/storage";
 
 const tempRootDirs: string[] = [];
 
@@ -20,14 +25,16 @@ afterEach(async () => {
   expect(tempRootDirs).toHaveLength(0);
 });
 
-describe("registerCollectCommand", () => {
-  test("netKeiba snapshotをAI構造化してrace.jsonを保存できる", async () => {
+describe("registerPredictCommand", () => {
+  test("netKeiba取得からAI分析まで連続実行できる", async () => {
     // Arrange
     const rootDir = await createTempRootDir();
+    const policyPath = await writeTempPolicyFile("芝マイルでは持続力を重視する。");
     const snapshot = createSnapshot();
     const race = createRace(snapshot);
+    const prediction = createPrediction(race.id);
     const logs: string[] = [];
-    const program = createCollectProgram({
+    const program = createPredictProgram({
       collectRaceSnapshot: async (input) => {
         expect(input).toEqual({
           raceUrl: snapshot.racePage.sourceUrl,
@@ -45,20 +52,30 @@ describe("registerCollectCommand", () => {
         return race;
       },
       weatherProvider: {
-        getWeather: async (input) => {
-          expect(input).toEqual({
-            racecourse: race.racecourse,
-            raceStartTime: race.startTime
-          });
-          return {
+        getWeather: async () => ({
+          condition: "晴れ",
+          precipitationProbability: 20,
+          temperatureCelsius: 24.8,
+          wind: "南西 12km/h",
+          source: "https://api.open-meteo.com/v1/forecast",
+          observedAt: "2026-05-31T16:00:00+09:00"
+        })
+      },
+      analyzeRace: async (input) => {
+        expect(input.race).toEqual({
+          ...race,
+          weather: {
             condition: "晴れ",
             precipitationProbability: 20,
             temperatureCelsius: 24.8,
             wind: "南西 12km/h",
             source: "https://api.open-meteo.com/v1/forecast",
             observedAt: "2026-05-31T16:00:00+09:00"
-          };
-        }
+          }
+        });
+        expect(input.policy.content).toBe("芝マイルでは持続力を重視する。");
+        expect(input.model).toBe("fixture-codex-model");
+        return prediction;
       },
       log: (message) => {
         logs.push(message);
@@ -69,10 +86,12 @@ describe("registerCollectCommand", () => {
     await program.parseAsync([
       "node",
       "test",
-      "collect",
+      "predict",
       snapshot.racePage.sourceUrl,
       "--runs-dir",
       rootDir,
+      "--policy-path",
+      policyPath,
       "--model",
       "fixture-codex-model",
       "--min-delay-ms",
@@ -80,10 +99,11 @@ describe("registerCollectCommand", () => {
       "--horse-detail-limit",
       "1"
     ]);
-    const actual = await readRace(race.id, { rootDir });
+    const actualRace = await readRace(race.id, { rootDir });
+    const actualPrediction = await readPrediction(race.id, { rootDir });
 
     // Assert
-    expect(actual).toEqual({
+    expect(actualRace).toEqual({
       ...race,
       weather: {
         condition: "晴れ",
@@ -94,31 +114,38 @@ describe("registerCollectCommand", () => {
         observedAt: "2026-05-31T16:00:00+09:00"
       }
     });
+    expect(actualPrediction).toEqual(prediction);
     expect(logs).toEqual([
-      "レース取得を開始します。",
+      "レース取得と分析を開始します。",
       "netKeiba snapshot取得中です。",
       "AIでレース情報を構造化しています。",
       `レース情報を構造化しました: ${race.name} (${race.id})`,
       "Open-Meteoから天気情報を取得しています。",
       "天気情報を取得しました: 晴れ / 24.8℃ / 降水20% / 南西 12km/h",
       "race.json を保存しています。",
-      `race.json を保存しました: ${race.id}`
+      `race.json を保存しました: ${race.id}`,
+      "予想方針を読み込んでいます。",
+      "Codexで予想分析を実行しています。",
+      "prediction.json を保存しています。",
+      `prediction.json を保存しました: ${prediction.raceId}`,
+      `レース取得と分析が完了しました: ${prediction.raceId}`
     ]);
   });
 
-  test("AI構造化に失敗した場合はrace.jsonを保存しない", async () => {
+  test("分析に失敗した場合もrace.jsonは保存済みにできる", async () => {
     // Arrange
     const rootDir = await createTempRootDir();
+    const policyPath = await writeTempPolicyFile("芝マイルでは持続力を重視する。");
     const snapshot = createSnapshot();
-    const program = createCollectProgram({
+    const race = createRace(snapshot);
+    const program = createPredictProgram({
       collectRaceSnapshot: async () => snapshot,
-      extractRaceFromSnapshot: async () => {
-        throw new Error("extract failed");
-      },
+      extractRaceFromSnapshot: async () => race,
       weatherProvider: {
-        getWeather: async () => {
-          throw new Error("weather should not be called");
-        }
+        getWeather: async () => ({})
+      },
+      analyzeRace: async () => {
+        throw new Error("analysis failed");
       },
       log: () => {}
     });
@@ -127,97 +154,24 @@ describe("registerCollectCommand", () => {
     const actual = program.parseAsync([
       "node",
       "test",
-      "collect",
+      "predict",
       snapshot.racePage.sourceUrl,
       "--runs-dir",
-      rootDir
+      rootDir,
+      "--policy-path",
+      policyPath
     ]);
 
     // Assert
-    await expect(actual).rejects.toThrow("extract failed");
-    await expect(listRuns({ rootDir })).resolves.toEqual([]);
-  });
-
-  test("天気取得に失敗してもweatherなしのrace.jsonを保存できる", async () => {
-    // Arrange
-    const rootDir = await createTempRootDir();
-    const snapshot = createSnapshot();
-    const race = createRace(snapshot);
-    const logs: string[] = [];
-    const program = createCollectProgram({
-      collectRaceSnapshot: async () => snapshot,
-      extractRaceFromSnapshot: async () => race,
-      weatherProvider: {
-        getWeather: async () => {
-          throw new Error("Open-Meteo の天気取得に未対応の競馬場です: unknown");
-        }
-      },
-      log: (message) => {
-        logs.push(message);
-      }
-    });
-
-    // Act
-    await program.parseAsync([
-      "node",
-      "test",
-      "collect",
-      snapshot.racePage.sourceUrl,
-      "--runs-dir",
-      rootDir
-    ]);
-    const actual = await readRace(race.id, { rootDir });
-
-    // Assert
-    expect(actual).toEqual(race);
-    expect(logs).toEqual([
-      "レース取得を開始します。",
-      "AIでレース情報を構造化しています。",
-      `レース情報を構造化しました: ${race.name} (${race.id})`,
-      "Open-Meteoから天気情報を取得しています。",
-      "天気情報を保存しませんでした: Open-Meteo の天気取得に未対応の競馬場です: unknown",
-      "race.json を保存しています。",
-      `race.json を保存しました: ${race.id}`
-    ]);
-  });
-
-  test("互換オプションのrace URLでも取得できる", async () => {
-    // Arrange
-    const rootDir = await createTempRootDir();
-    const snapshot = createSnapshot();
-    const race = createRace(snapshot);
-    const program = createCollectProgram({
-      collectRaceSnapshot: async (input) => {
-        expect(input.raceUrl).toBe(snapshot.racePage.sourceUrl);
-        return snapshot;
-      },
-      extractRaceFromSnapshot: async () => race,
-      weatherProvider: {
-        getWeather: async () => ({})
-      },
-      log: () => {}
-    });
-
-    // Act
-    await program.parseAsync([
-      "node",
-      "test",
-      "collect",
-      "--race-url",
-      snapshot.racePage.sourceUrl,
-      "--runs-dir",
-      rootDir
-    ]);
-    const actual = await readRace(race.id, { rootDir });
-
-    // Assert
-    expect(actual).toEqual({ ...race, weather: {} });
+    await expect(actual).rejects.toThrow("analysis failed");
+    await expect(readRace(race.id, { rootDir })).resolves.toEqual({ ...race, weather: {} });
+    await expect(readPrediction(race.id, { rootDir })).rejects.toThrow();
   });
 });
 
-/** collect コマンドだけを登録したテスト用 Commander program を作る。 */
-const createCollectProgram = (
-  dependencies: Parameters<typeof registerCollectCommand>[1]
+/** predict コマンドだけを登録したテスト用 Commander program を作る。 */
+const createPredictProgram = (
+  dependencies: Parameters<typeof registerPredictCommand>[1]
 ): Command => {
   const program = new Command();
   program.exitOverride();
@@ -225,11 +179,11 @@ const createCollectProgram = (
     writeErr: () => {},
     writeOut: () => {}
   });
-  registerCollectCommand(program, dependencies);
+  registerPredictCommand(program, dependencies);
   return program;
 };
 
-/** collect コマンドテスト用のページsnapshotを作る。 */
+/** predict コマンドテスト用のページsnapshotを作る。 */
 const createSnapshot = (): RaceSourceSnapshot => {
   const racePage = {
     sourceUrl: "https://example.test/race?race_id=fixture-aoba-mile-2026",
@@ -253,7 +207,7 @@ const createSnapshot = (): RaceSourceSnapshot => {
   };
 };
 
-/** collect コマンドテスト用のRaceを作る。 */
+/** predict コマンドテスト用のRaceを作る。 */
 const createRace = (snapshot: RaceSourceSnapshot): Race => {
   return parseRace({
     id: "fixture-aoba-mile-2026",
@@ -275,9 +229,43 @@ const createRace = (snapshot: RaceSourceSnapshot): Race => {
   });
 };
 
+/** CLI 保存確認で使う最小限の Prediction fixture を作る。 */
+const createPrediction = (raceId: string): Prediction => {
+  return {
+    raceId,
+    summary: "架空レースでは先行力と持続力を重視する。",
+    evaluations: [
+      {
+        horseId: "fixture-horse-001",
+        mark: "favorite",
+        score: 88,
+        reasons: ["芝マイルで安定している。"],
+        risks: ["展開が速くなりすぎる可能性がある。"]
+      }
+    ],
+    betCandidates: [
+      {
+        type: "単勝",
+        horses: ["fixture-horse-001"],
+        reason: "軸として最も安定している。",
+        stakeWeight: 40
+      }
+    ],
+    generatedAt: "2026-05-31T14:40:00+09:00"
+  };
+};
+
+/** テストごとに分離された一時予想方針ファイルを書き出す。 */
+const writeTempPolicyFile = async (content: string): Promise<string> => {
+  const rootDir = await createTempRootDir();
+  const policyPath = join(rootDir, "main.md");
+  await writeFile(policyPath, content, "utf8");
+  return policyPath;
+};
+
 /** 後片付け対象として記録した一時ディレクトリを作る。 */
 const createTempRootDir = async (): Promise<string> => {
-  const rootDir = await mkdtemp(join(tmpdir(), "keiba-ai-collect-command-"));
+  const rootDir = await mkdtemp(join(tmpdir(), "keiba-ai-predict-command-"));
   tempRootDirs.push(rootDir);
   return rootDir;
 };

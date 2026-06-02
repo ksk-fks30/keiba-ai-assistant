@@ -24,21 +24,30 @@ export interface CollectRaceSnapshotInput {
   headless?: boolean;
   /** snapshot取得時刻を差し替える関数。テストで時刻を固定する場合に使う。 */
   now?: () => Date;
+  /** CLIなど呼び出し元へ処理状況を伝える関数。 */
+  onProgress?: ((message: string) => void) | undefined;
 }
 
-const defaultMinDelayMs = 3000;
+const defaultMinDelayMs = 5000;
 const defaultHorseDetailLimit = 18;
 
 /** netKeiba のレースページと馬詳細ページを1ページずつ開き、AI構造化に渡す軽量 snapshot を返す。 */
 export const collectRaceSnapshotFromNetkeiba = async (
   input: CollectRaceSnapshotInput
 ): Promise<RaceSourceSnapshot> => {
+  reportProgress(input, "Chromium を起動しています。");
   const session = await createBrowserSession(buildBrowserSessionOptions(input));
 
   try {
+    reportProgress(input, `レースページを開いています: ${input.raceUrl}`);
     await session.page.goto(input.raceUrl, { waitUntil: "domcontentloaded" });
+    reportProgress(
+      input,
+      `アクセス間隔を待機しています: ${input.minDelayMs ?? defaultMinDelayMs}ms`
+    );
     await waitForNextPage({ minDelayMs: input.minDelayMs ?? defaultMinDelayMs });
 
+    reportProgress(input, "レースページのsnapshotを作成しています。");
     const racePage = await createSourcePageSnapshot(
       session.page,
       buildRacePageSnapshotOptions(input)
@@ -46,6 +55,7 @@ export const collectRaceSnapshotFromNetkeiba = async (
     throwIfRestricted(racePage);
     const horseDetailPages = await collectHorseDetailPages(session.page, racePage, input);
 
+    reportProgress(input, "netKeiba snapshot取得が完了しました。");
     return parseRaceSourceSnapshot({ racePage, horseDetailPages });
   } finally {
     await session.close();
@@ -69,17 +79,31 @@ const collectHorseDetailPages = async (
 ): Promise<SourcePageSnapshot[]> => {
   const limit = input.horseDetailLimit ?? defaultHorseDetailLimit;
   if (limit === 0) {
+    reportProgress(input, "馬詳細ページの取得はスキップします。");
     return [];
   }
 
   const links = findHorseDetailLinks(racePage).slice(0, limit);
+  reportProgress(input, `馬詳細ページを取得します: ${links.length}件`);
   const snapshots: SourcePageSnapshot[] = [];
 
-  for (const link of links) {
+  for (const [index, link] of links.entries()) {
     // 馬詳細ページも1件ずつ開き、ページごとに待機して短時間アクセスを避ける。
+    reportProgress(
+      input,
+      `馬詳細ページを開いています (${index + 1}/${links.length}): ${link.text}`
+    );
     await page.goto(link.href, { waitUntil: "domcontentloaded" });
+    reportProgress(
+      input,
+      `アクセス間隔を待機しています: ${input.minDelayMs ?? defaultMinDelayMs}ms`
+    );
     await waitForNextPage({ minDelayMs: input.minDelayMs ?? defaultMinDelayMs });
 
+    reportProgress(
+      input,
+      `馬詳細ページのsnapshotを作成しています (${index + 1}/${links.length})。`
+    );
     const snapshot = await createSourcePageSnapshot(page, buildHorseDetailSnapshotOptions(input));
     throwIfRestricted(snapshot);
     snapshots.push(snapshot);
@@ -113,6 +137,11 @@ const buildRacePageSnapshotOptions = (
   }
 
   return { ...options, now: input.now };
+};
+
+/** 呼び出し元が進捗表示を要求している場合だけメッセージを渡す。 */
+const reportProgress = (input: CollectRaceSnapshotInput, message: string): void => {
+  input.onProgress?.(message);
 };
 
 /** collect 入力から馬詳細ページの snapshot 作成設定だけを作る。 */

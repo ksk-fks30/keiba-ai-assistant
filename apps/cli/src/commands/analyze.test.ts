@@ -47,7 +47,6 @@ describe("registerAnalyzeCommand", () => {
       "node",
       "test",
       "analyze",
-      "--race-id",
       race.id,
       "--runs-dir",
       rootDir,
@@ -60,7 +59,13 @@ describe("registerAnalyzeCommand", () => {
 
     // Assert
     expect(actual).toEqual(prediction);
-    expect(logs).toEqual([`prediction.json を保存しました: ${race.id}`]);
+    expect(logs).toEqual([
+      `保存済みレースを読み込んでいます: ${race.id}`,
+      "予想方針を読み込んでいます。",
+      "Codexで予想分析を実行しています。",
+      "prediction.json を保存しています。",
+      `prediction.json を保存しました: ${race.id}`
+    ]);
   });
 
   test("分析に失敗した場合は prediction.json を残さない", async () => {
@@ -81,7 +86,6 @@ describe("registerAnalyzeCommand", () => {
       "node",
       "test",
       "analyze",
-      "--race-id",
       race.id,
       "--runs-dir",
       rootDir,

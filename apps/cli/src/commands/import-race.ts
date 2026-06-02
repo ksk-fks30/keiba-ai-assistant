@@ -6,7 +6,7 @@ import { writeRace, type RunStoreOptions } from "@keiba-ai-assistant/storage";
 /** import-race コマンドが受け取る CLI オプション。 */
 interface ImportRaceCommandOptions {
   /** 取り込み対象の構造化済み race JSON ファイルパス。 */
-  raceJson: string;
+  raceJson?: string | undefined;
   /** runs ディレクトリのルートパス。 */
   runsDir?: string | undefined;
 }
@@ -36,15 +36,37 @@ export const registerImportRaceCommand = (
   program
     .command("import-race")
     .description("Import structured race JSON")
-    .requiredOption("--race-json <path>", "Race JSON file path")
+    .argument("[raceJson]", "Race JSON file path")
+    .option("--race-json <path>", "Race JSON file path")
     .option("--runs-dir <path>", "Runs root directory")
-    .action(async (options: ImportRaceCommandOptions) => {
+    .action(async (raceJson: string | undefined, options: ImportRaceCommandOptions) => {
+      const resolvedRaceJson = resolveRaceJson(raceJson, options);
+      deps.log(`race JSON を読み込んでいます: ${resolvedRaceJson}`);
       const race = parseRace(
-        parseRaceJson(await deps.readRaceJson(options.raceJson), options.raceJson)
+        parseRaceJson(await deps.readRaceJson(resolvedRaceJson), resolvedRaceJson)
       );
+      deps.log("race.json を保存しています。");
       await deps.writeRace(race, buildRunStoreOptions(options));
       deps.log(`race.json を保存しました: ${race.id}`);
     });
+};
+
+/** 位置引数と互換オプションから取り込み対象JSONパスを決める。 */
+const resolveRaceJson = (
+  raceJson: string | undefined,
+  options: ImportRaceCommandOptions
+): string => {
+  if (raceJson !== undefined && options.raceJson !== undefined && raceJson !== options.raceJson) {
+    throw new Error("race JSON は位置引数または --race-json のどちらか一方で指定してください。");
+  }
+  if (raceJson !== undefined) {
+    return raceJson;
+  }
+  if (options.raceJson !== undefined) {
+    return options.raceJson;
+  }
+
+  throw new Error("race JSON を指定してください。例: pnpm keiba import-race <race-json>");
 };
 
 /** CLI オプションから run store の読み書き設定を組み立てる。 */

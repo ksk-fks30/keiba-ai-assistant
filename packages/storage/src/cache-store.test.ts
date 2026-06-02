@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { readCache, writeCache, type CacheStoreOptions } from "@keiba-ai-assistant/storage";
+import { getCachePath } from "@keiba-ai-assistant/storage/cache-store";
 
 interface CachePayload {
   raceId: string;
@@ -23,6 +24,25 @@ afterEach(async () => {
 });
 
 describe("cache-store", () => {
+  test("ネストしたcwdからでもデフォルトのcache保存先はリポジトリルートのdata/cacheになる", () => {
+    // Arrange
+    const workspaceRoot = process.cwd();
+    const nestedCwd = join(workspaceRoot, "apps", "cli");
+    const key = "fixture-race-cache";
+    let actual = "";
+
+    process.chdir(nestedCwd);
+    try {
+      // Act
+      actual = getCachePath(key);
+    } finally {
+      process.chdir(workspaceRoot);
+    }
+
+    // Assert
+    expect(actual).toBe(join(workspaceRoot, "data", "cache", `${encodeURIComponent(key)}.json`));
+  });
+
   test("保存した cache を読み込める", async () => {
     // Arrange
     const options = await createTempCacheStoreOptions();

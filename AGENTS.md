@@ -146,6 +146,7 @@ keiba-ai-assistant/
         policy-store.ts
         qa-store.ts
         file-system.ts
+        workspace-root.ts
         index.ts
 
   policies/
@@ -189,17 +190,23 @@ keiba-ai-assistant/
 - `apps/cli` はローカル操作用の入口として実装する。
 - Webサーバー起動、レース取得、分析、追加質問の実行をCLIから呼べるようにする。
 - CLIはWeb固有のUI実装に依存せず、必要な `packages/*` の処理を呼び出す。
+- ルートの `pnpm keiba` script は `apps/cli` の短縮入口である。
+- `predict` は `collect` と `analyze` を連続実行し、`race.json` と `prediction.json` を保存する。
+- CLIは主要入力を位置引数で受け取り、既存の `--race-url`、`--race-id`、`--race-json` は互換用オプションとして残す。
+- 長時間動くCLI処理は、外部I/O、AI実行、保存処理の進捗を標準出力に出す。
+- `collect` は既定でChromiumをheadless起動し、ブラウザ画面を見たい場合は `--show-browser` を指定する。
 
 想定コマンド:
 
 ```text
-keiba-ai-assistant serve
-keiba-ai-assistant collect --race-url <url>
-keiba-ai-assistant import-race --race-json <path> [--runs-dir <path>]
-keiba-ai-assistant policy
-keiba-ai-assistant analyze --race-id <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
-keiba-ai-assistant ask --race-id <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>] <question>
-keiba-ai-assistant qa-history --race-id <race-id> [--runs-dir <path>]
+pnpm keiba serve
+pnpm keiba collect <url>
+pnpm keiba predict <url> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
+pnpm keiba import-race <path> [--runs-dir <path>]
+pnpm keiba policy
+pnpm keiba analyze <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
+pnpm keiba ask <race-id> <question> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
+pnpm keiba qa-history <race-id> [--runs-dir <path>]
 ```
 
 ## コード品質設定
@@ -353,7 +360,7 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 
 ## ローカルデータ仕様
 
-レース単位の実行結果は `runs/` に保存する。
+レース単位の実行結果は pnpm workspace root 直下の `runs/` に保存する。
 
 ```text
 runs/
@@ -365,7 +372,7 @@ runs/
     metadata.json
 ```
 
-取得キャッシュやブラウザ関連の一時データは `data/` に保存する。
+取得キャッシュやブラウザ関連の一時データは pnpm workspace root 直下の `data/` に保存する。
 
 ```text
 data/
