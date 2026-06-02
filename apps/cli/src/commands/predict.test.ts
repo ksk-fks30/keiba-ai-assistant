@@ -10,7 +10,13 @@ import {
   type Race,
   type RaceSourceSnapshot
 } from "@keiba-ai-assistant/models";
-import { readPrediction, readRace } from "@keiba-ai-assistant/storage";
+import {
+  appendQaEntry,
+  readPrediction,
+  readQaEntries,
+  readRace,
+  writePrediction
+} from "@keiba-ai-assistant/storage";
 
 const tempRootDirs: string[] = [];
 
@@ -122,6 +128,8 @@ describe("registerPredictCommand", () => {
       `レース情報を構造化しました: ${race.name} (${race.id})`,
       "Open-Meteoから天気情報を取得しています。",
       "天気情報を取得しました: 晴れ / 24.8℃ / 降水20% / 南西 12km/h",
+      "既存の予想結果を無効化しています。",
+      `既存の予想結果を無効化しました: ${race.id}`,
       "race.json を保存しています。",
       `race.json を保存しました: ${race.id}`,
       "予想方針を読み込んでいます。",
@@ -132,12 +140,23 @@ describe("registerPredictCommand", () => {
     ]);
   });
 
-  test("分析に失敗した場合もrace.jsonは保存済みにできる", async () => {
+  test("分析に失敗した場合は既存予想とQ&Aを無効化してrace.jsonだけ保存できる", async () => {
     // Arrange
     const rootDir = await createTempRootDir();
     const policyPath = await writeTempPolicyFile("芝マイルでは持続力を重視する。");
     const snapshot = createSnapshot();
     const race = createRace(snapshot);
+    await writePrediction(createPrediction(race.id), { rootDir });
+    await appendQaEntry(
+      {
+        id: "qa-fixture-old",
+        raceId: race.id,
+        question: "古い質問は？",
+        answer: "古い回答。",
+        createdAt: "2026-05-31T14:45:00+09:00"
+      },
+      { rootDir }
+    );
     const program = createPredictProgram({
       collectRaceSnapshot: async () => snapshot,
       extractRaceFromSnapshot: async () => race,
@@ -166,6 +185,7 @@ describe("registerPredictCommand", () => {
     await expect(actual).rejects.toThrow("analysis failed");
     await expect(readRace(race.id, { rootDir })).resolves.toEqual({ ...race, weather: {} });
     await expect(readPrediction(race.id, { rootDir })).rejects.toThrow();
+    await expect(readQaEntries(race.id, { rootDir })).resolves.toEqual([]);
   });
 });
 

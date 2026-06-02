@@ -12,6 +12,7 @@ import {
 } from "@keiba-ai-assistant/scraper";
 import type { WeatherProvider } from "@keiba-ai-assistant/scraper/weather/provider";
 import {
+  invalidateRunAnalysis,
   readPredictionPolicy,
   writePrediction,
   writeRace,
@@ -51,6 +52,8 @@ export interface PredictCommandDependencies {
   readPredictionPolicy?: typeof readPredictionPolicy | undefined;
   /** レース分析を実行する関数。 */
   analyzeRace?: ((input: AnalyzeRaceInput) => Promise<Prediction>) | undefined;
+  /** 既存の分析結果とQ&A履歴を無効化する関数。 */
+  invalidateRunAnalysis?: typeof invalidateRunAnalysis | undefined;
   /** Race モデルを run store へ保存する関数。 */
   writeRace?: typeof writeRace | undefined;
   /** 分析結果を run store へ保存する関数。 */
@@ -71,6 +74,7 @@ export const registerPredictCommand = (
     weatherProvider: dependencies.weatherProvider ?? defaultWeatherProvider,
     readPredictionPolicy: dependencies.readPredictionPolicy ?? readPredictionPolicy,
     analyzeRace: dependencies.analyzeRace ?? analyzeRace,
+    invalidateRunAnalysis: dependencies.invalidateRunAnalysis ?? invalidateRunAnalysis,
     writeRace: dependencies.writeRace ?? writeRace,
     writePrediction: dependencies.writePrediction ?? writePrediction,
     log: dependencies.log ?? console.log
@@ -103,6 +107,9 @@ export const registerPredictCommand = (
       deps.log("Open-Meteoから天気情報を取得しています。");
       const raceWithWeather = await attachWeather(race, deps.weatherProvider, deps.log);
 
+      deps.log("既存の予想結果を無効化しています。");
+      await deps.invalidateRunAnalysis(raceWithWeather.id, runStoreOptions);
+      deps.log(`既存の予想結果を無効化しました: ${raceWithWeather.id}`);
       deps.log("race.json を保存しています。");
       await deps.writeRace(raceWithWeather, runStoreOptions);
       deps.log(`race.json を保存しました: ${raceWithWeather.id}`);
