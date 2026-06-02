@@ -7,6 +7,7 @@ import { parseRace, type Prediction, type QaEntry } from "@keiba-ai-assistant/mo
 import {
   appendQaEntry,
   createRun,
+  getRunDir,
   listRuns,
   readQaEntries,
   readPrediction,
@@ -31,6 +32,25 @@ afterEach(async () => {
 });
 
 describe("run-store", () => {
+  test("ネストしたcwdからでもデフォルトのrun保存先はリポジトリルートのrunsになる", () => {
+    // Arrange
+    const workspaceRoot = process.cwd();
+    const nestedCwd = join(workspaceRoot, "apps", "cli");
+    const raceId = "fixture-aoba-mile-2026";
+    let actual = "";
+
+    process.chdir(nestedCwd);
+    try {
+      // Act
+      actual = getRunDir(raceId);
+    } finally {
+      process.chdir(workspaceRoot);
+    }
+
+    // Assert
+    expect(actual).toBe(join(workspaceRoot, "runs", raceId));
+  });
+
   test("架空レース fixture を run として保存して読み込める", async () => {
     // Arrange
     const options = await createTempRunStoreOptions();
