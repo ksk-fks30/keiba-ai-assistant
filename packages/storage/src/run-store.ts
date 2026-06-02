@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parsePrediction, parseRace, type Prediction, type Race } from "@keiba-ai-assistant/models";
 import { fileExists, isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
@@ -110,6 +110,18 @@ export const readPrediction = async (
 ): Promise<Prediction> => {
   const json = await readJson(join(getRunDir(raceId, options), predictionFileName));
   return parsePrediction(json);
+};
+
+/** 指定した run の既存分析結果とQ&A履歴を削除し、race.jsonだけを残せる状態にする。 */
+export const invalidateRunAnalysis = async (
+  raceId: string,
+  options: RunStoreOptions = {}
+): Promise<void> => {
+  const runDir = getRunDir(raceId, options);
+  await Promise.all([
+    rm(join(runDir, predictionFileName), { force: true }),
+    rm(join(runDir, qaFileName), { force: true })
+  ]);
 };
 
 /** run 保存先のルートディレクトリをオプションまたは workspace root から解決する。 */

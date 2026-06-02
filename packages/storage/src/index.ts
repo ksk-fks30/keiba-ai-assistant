@@ -4,6 +4,7 @@ export { appendQaEntry, readQaEntries } from "@keiba-ai-assistant/storage/qa-sto
 export {
   createRun,
   getRunDir,
+  invalidateRunAnalysis,
   listRuns,
   readPrediction,
   readRace,
