@@ -53,6 +53,22 @@ runs/
 
 `runs/` と `data/` の中身はGit管理しない。
 
+## CLI
+
+ローカルCLIはルートから `pnpm keiba` で実行する。
+
+```sh
+pnpm keiba collect "<race-url>"
+pnpm keiba predict "<race-url>"
+pnpm keiba analyze <race-id>
+pnpm keiba ask <race-id> "<question>"
+pnpm keiba qa-history <race-id>
+```
+
+`predict` はレース取得、`race.json` 保存、AI分析、`prediction.json` 保存をまとめて実行する。
+取得、AI構造化、天気取得、分析、保存などの長時間処理では、進捗が標準出力に表示される。
+`collect` は既定でheadlessブラウザを使い、ブラウザ画面を見たい場合は `--show-browser` を指定する。
+
 ## 利用上の注意
 
 - netKeibaからの情報取得は、ローカル私用・低頻度・低負荷を前提にする。

@@ -35,20 +35,16 @@ describe("registerImportRaceCommand", () => {
     });
 
     // Act
-    await program.parseAsync([
-      "node",
-      "test",
-      "import-race",
-      "--race-json",
-      raceJsonPath,
-      "--runs-dir",
-      rootDir
-    ]);
+    await program.parseAsync(["node", "test", "import-race", raceJsonPath, "--runs-dir", rootDir]);
     const actual = await readRace(race.id, { rootDir });
 
     // Assert
     expect(actual).toEqual(race);
-    expect(logs).toEqual([`race.json を保存しました: ${race.id}`]);
+    expect(logs).toEqual([
+      `race JSON を読み込んでいます: ${raceJsonPath}`,
+      "race.json を保存しています。",
+      `race.json を保存しました: ${race.id}`
+    ]);
   });
 
   test("Race として不正な JSON は保存しない", async () => {

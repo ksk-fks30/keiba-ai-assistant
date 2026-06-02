@@ -3,6 +3,8 @@ export { getPolicyPath, readPredictionPolicy } from "@keiba-ai-assistant/storage
 export { appendQaEntry, readQaEntries } from "@keiba-ai-assistant/storage/qa-store";
 export {
   createRun,
+  getRunDir,
+  invalidateRunAnalysis,
   listRuns,
   readPrediction,
   readRace,

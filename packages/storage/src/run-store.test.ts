@@ -7,6 +7,8 @@ import { parseRace, type Prediction, type QaEntry } from "@keiba-ai-assistant/mo
 import {
   appendQaEntry,
   createRun,
+  getRunDir,
+  invalidateRunAnalysis,
   listRuns,
   readQaEntries,
   readPrediction,
@@ -31,6 +33,25 @@ afterEach(async () => {
 });
 
 describe("run-store", () => {
+  test("ネストしたcwdからでもデフォルトのrun保存先はリポジトリルートのrunsになる", () => {
+    // Arrange
+    const workspaceRoot = process.cwd();
+    const nestedCwd = join(workspaceRoot, "apps", "cli");
+    const raceId = "fixture-aoba-mile-2026";
+    let actual = "";
+
+    process.chdir(nestedCwd);
+    try {
+      // Act
+      actual = getRunDir(raceId);
+    } finally {
+      process.chdir(workspaceRoot);
+    }
+
+    // Assert
+    expect(actual).toBe(join(workspaceRoot, "runs", raceId));
+  });
+
   test("架空レース fixture を run として保存して読み込める", async () => {
     // Arrange
     const options = await createTempRunStoreOptions();
@@ -89,6 +110,63 @@ describe("run-store", () => {
     // Assert
     expect(actual).toEqual(prediction);
     expect(summaries[0]?.hasPrediction).toBe(true);
+  });
+
+  test("既存の予想結果とQ&A履歴だけを無効化できる", async () => {
+    // Arrange
+    const options = await createTempRunStoreOptions();
+    const race = parseRace(sampleRace);
+    const prediction: Prediction = {
+      raceId: race.id,
+      summary: "古い予想結果。",
+      evaluations: [
+        {
+          horseId: "fixture-horse-001",
+          mark: "favorite",
+          score: 86,
+          reasons: ["古い評価理由。"],
+          risks: ["古いリスク。"]
+        }
+      ],
+      betCandidates: [
+        {
+          type: "単勝",
+          horses: ["fixture-horse-001"],
+          reason: "古い買い目理由。",
+          stakeWeight: 40
+        }
+      ],
+      generatedAt: "2026-05-31T13:30:00+09:00"
+    };
+    const qaEntry: QaEntry = {
+      id: "qa-fixture-001",
+      raceId: race.id,
+      question: "古い質問は？",
+      answer: "古い回答。",
+      createdAt: "2026-05-31T13:35:00+09:00"
+    };
+    await writeRace(race, options);
+    await writePrediction(prediction, options);
+    await appendQaEntry(qaEntry, options);
+
+    // Act
+    await invalidateRunAnalysis(race.id, options);
+    const actualRace = await readRace(race.id, options);
+    const qaEntries = await readQaEntries(race.id, options);
+    const summaries = await listRuns(options);
+
+    // Assert
+    expect(actualRace).toEqual(race);
+    await expect(readPrediction(race.id, options)).rejects.toThrow();
+    expect(qaEntries).toEqual([]);
+    expect(summaries).toMatchObject([
+      {
+        raceId: race.id,
+        hasRace: true,
+        hasPrediction: false,
+        hasQa: false
+      }
+    ]);
   });
 
   test("Q&A履歴を追記してモデルとして読み込める", async () => {

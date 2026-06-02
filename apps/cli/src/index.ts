@@ -5,6 +5,7 @@ import { registerAskCommand, registerQaHistoryCommand } from "@keiba-ai-assistan
 import { registerCollectCommand } from "@keiba-ai-assistant/cli/commands/collect";
 import { registerImportRaceCommand } from "@keiba-ai-assistant/cli/commands/import-race";
 import { registerPolicyCommand } from "@keiba-ai-assistant/cli/commands/policy";
+import { registerPredictCommand } from "@keiba-ai-assistant/cli/commands/predict";
 import { registerServeCommand } from "@keiba-ai-assistant/cli/commands/serve";
 
 const program = new Command();
@@ -25,6 +26,7 @@ program
 
 registerServeCommand(program);
 registerCollectCommand(program);
+registerPredictCommand(program);
 registerPolicyCommand(program);
 registerImportRaceCommand(program);
 registerAnalyzeCommand(program);

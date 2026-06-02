@@ -1,22 +1,35 @@
 import type { Command } from "commander";
-import { extractRaceFromSnapshot } from "@keiba-ai-assistant/ai";
-import { parseRace, type Race, type Weather } from "@keiba-ai-assistant/models";
+import {
+  analyzeRace,
+  extractRaceFromSnapshot,
+  type AnalyzeRaceInput
+} from "@keiba-ai-assistant/ai";
+import { parseRace, type Prediction, type Race, type Weather } from "@keiba-ai-assistant/models";
 import {
   collectRaceSnapshotFromNetkeiba,
   createOpenMeteoWeatherProvider,
   type CollectRaceSnapshotInput
 } from "@keiba-ai-assistant/scraper";
 import type { WeatherProvider } from "@keiba-ai-assistant/scraper/weather/provider";
-import { writeRace, type RunStoreOptions } from "@keiba-ai-assistant/storage";
+import {
+  invalidateRunAnalysis,
+  readPredictionPolicy,
+  writePrediction,
+  writeRace,
+  type PolicyStoreOptions,
+  type RunStoreOptions
+} from "@keiba-ai-assistant/storage";
 
-/** collect コマンドが受け取る CLI オプション。 */
-interface CollectCommandOptions {
+/** predict コマンドが受け取る CLI オプション。 */
+interface PredictCommandOptions {
   /** 取得対象の netKeiba レースURL。 */
   raceUrl?: string | undefined;
   /** runs ディレクトリのルートパス。 */
   runsDir?: string | undefined;
-  /** この抽出で利用する Codex モデル名。 */
+  /** Codex SDK に渡すモデル名。レース構造化と予想分析の両方で使う。 */
   model?: string | undefined;
+  /** 予想方針ファイルのパス。 */
+  policyPath?: string | undefined;
   /** ページ表示後に最低限待機する時間。ミリ秒文字列。 */
   minDelayMs?: string | undefined;
   /** レースページから遷移して取得する馬詳細ページの最大件数。 */
@@ -27,62 +40,92 @@ interface CollectCommandOptions {
   showBrowser?: boolean | undefined;
 }
 
-/** collect コマンドのテスト差し替え用依存関係。 */
-export interface CollectCommandDependencies {
+/** predict コマンドのテスト差し替え用依存関係。 */
+export interface PredictCommandDependencies {
   /** netKeiba レースページを開き、AI構造化用の軽量snapshotを取得する関数。 */
   collectRaceSnapshot?: typeof collectRaceSnapshotFromNetkeiba | undefined;
   /** ページsnapshotをRaceモデルへ構造化する関数。 */
   extractRaceFromSnapshot?: typeof extractRaceFromSnapshot | undefined;
   /** Open-MeteoなどからRaceに紐づく天気を取得するprovider。 */
   weatherProvider?: WeatherProvider | undefined;
+  /** 予想方針を読み込む関数。 */
+  readPredictionPolicy?: typeof readPredictionPolicy | undefined;
+  /** レース分析を実行する関数。 */
+  analyzeRace?: ((input: AnalyzeRaceInput) => Promise<Prediction>) | undefined;
+  /** 既存の分析結果とQ&A履歴を無効化する関数。 */
+  invalidateRunAnalysis?: typeof invalidateRunAnalysis | undefined;
   /** Race モデルを run store へ保存する関数。 */
   writeRace?: typeof writeRace | undefined;
+  /** 分析結果を run store へ保存する関数。 */
+  writePrediction?: typeof writePrediction | undefined;
   /** CLI にメッセージを出力する関数。 */
   log?: ((message: string) => void) | undefined;
 }
 
-/** netKeiba のレースURLからsnapshot取得、AI構造化、race.json保存を行う CLI コマンドを登録する。 */
-export const registerCollectCommand = (
+/** netKeiba取得からCodex分析までを連続実行する CLI コマンドを登録する。 */
+export const registerPredictCommand = (
   program: Command,
-  dependencies: CollectCommandDependencies = {}
+  dependencies: PredictCommandDependencies = {}
 ): void => {
   const defaultWeatherProvider = createOpenMeteoWeatherProvider();
   const deps = {
     collectRaceSnapshot: dependencies.collectRaceSnapshot ?? collectRaceSnapshotFromNetkeiba,
     extractRaceFromSnapshot: dependencies.extractRaceFromSnapshot ?? extractRaceFromSnapshot,
     weatherProvider: dependencies.weatherProvider ?? defaultWeatherProvider,
+    readPredictionPolicy: dependencies.readPredictionPolicy ?? readPredictionPolicy,
+    analyzeRace: dependencies.analyzeRace ?? analyzeRace,
+    invalidateRunAnalysis: dependencies.invalidateRunAnalysis ?? invalidateRunAnalysis,
     writeRace: dependencies.writeRace ?? writeRace,
+    writePrediction: dependencies.writePrediction ?? writePrediction,
     log: dependencies.log ?? console.log
   };
 
   program
-    .command("collect")
-    .description("Collect race data from netKeiba")
+    .command("predict")
+    .description("Collect and analyze a race")
     .argument("[raceUrl]", "netKeiba race URL")
     .option("--race-url <url>", "netKeiba race URL")
     .option("--runs-dir <path>", "Runs root directory")
     .option("--model <model>", "Codex model name")
+    .option("--policy-path <path>", "Prediction policy file path")
     .option("--min-delay-ms <ms>", "Minimum delay after page load in milliseconds")
     .option("--horse-detail-limit <count>", "Maximum horse detail pages to visit")
     .option("--headless", "Run browser in headless mode")
     .option("--show-browser", "Run browser with a visible window")
-    .action(async (raceUrl: string | undefined, options: CollectCommandOptions) => {
-      deps.log("レース取得を開始します。");
+    .action(async (raceUrl: string | undefined, options: PredictCommandOptions) => {
+      const runStoreOptions = buildRunStoreOptions(options);
+      deps.log("レース取得と分析を開始します。");
       const snapshot = await deps.collectRaceSnapshot(
         buildCollectRaceSnapshotInput(raceUrl, options, deps.log)
       );
       deps.log("AIでレース情報を構造化しています。");
       const race = await deps.extractRaceFromSnapshot({
         snapshot,
-        ...buildExtractRaceOptions(options)
+        ...buildCodexModelOption(options)
       });
       deps.log(`レース情報を構造化しました: ${race.name} (${race.id})`);
       deps.log("Open-Meteoから天気情報を取得しています。");
       const raceWithWeather = await attachWeather(race, deps.weatherProvider, deps.log);
 
+      deps.log("既存の予想結果を無効化しています。");
+      await deps.invalidateRunAnalysis(raceWithWeather.id, runStoreOptions);
+      deps.log(`既存の予想結果を無効化しました: ${raceWithWeather.id}`);
       deps.log("race.json を保存しています。");
-      await deps.writeRace(raceWithWeather, buildRunStoreOptions(options));
+      await deps.writeRace(raceWithWeather, runStoreOptions);
       deps.log(`race.json を保存しました: ${raceWithWeather.id}`);
+
+      deps.log("予想方針を読み込んでいます。");
+      const policy = await deps.readPredictionPolicy(buildPolicyStoreOptions(options));
+      deps.log("Codexで予想分析を実行しています。");
+      const prediction = await deps.analyzeRace({
+        race: raceWithWeather,
+        policy,
+        ...buildCodexModelOption(options)
+      });
+      deps.log("prediction.json を保存しています。");
+      await deps.writePrediction(prediction, runStoreOptions);
+      deps.log(`prediction.json を保存しました: ${prediction.raceId}`);
+      deps.log(`レース取得と分析が完了しました: ${prediction.raceId}`);
     });
 };
 
@@ -161,7 +204,7 @@ const isNonEmptyText = (value: string | undefined): value is string => {
 /** CLI オプションから netKeiba snapshot 取得設定を組み立てる。 */
 const buildCollectRaceSnapshotInput = (
   raceUrl: string | undefined,
-  options: CollectCommandOptions,
+  options: PredictCommandOptions,
   log: (message: string) => void
 ): CollectRaceSnapshotInput => {
   const input: CollectRaceSnapshotInput = {
@@ -183,7 +226,7 @@ const buildCollectRaceSnapshotInput = (
 };
 
 /** 位置引数と互換オプションから取得対象URLを決める。 */
-const resolveRaceUrl = (raceUrl: string | undefined, options: CollectCommandOptions): string => {
+const resolveRaceUrl = (raceUrl: string | undefined, options: PredictCommandOptions): string => {
   if (raceUrl !== undefined && options.raceUrl !== undefined && raceUrl !== options.raceUrl) {
     throw new Error("race URL は位置引数または --race-url のどちらか一方で指定してください。");
   }
@@ -194,11 +237,11 @@ const resolveRaceUrl = (raceUrl: string | undefined, options: CollectCommandOpti
     return options.raceUrl;
   }
 
-  throw new Error("race URL を指定してください。例: pnpm keiba collect <race-url>");
+  throw new Error("race URL を指定してください。例: pnpm keiba predict <race-url>");
 };
 
-/** CLI collect のブラウザ表示設定を決める。 */
-const resolveHeadless = (options: CollectCommandOptions): boolean => {
+/** CLI predict のブラウザ表示設定を決める。 */
+const resolveHeadless = (options: PredictCommandOptions): boolean => {
   if (options.headless === true && options.showBrowser === true) {
     throw new Error("--headless と --show-browser は同時に指定できません。");
   }
@@ -209,8 +252,8 @@ const resolveHeadless = (options: CollectCommandOptions): boolean => {
   return true;
 };
 
-/** CLI オプションから AI 抽出設定を組み立てる。 */
-const buildExtractRaceOptions = (options: CollectCommandOptions) => {
+/** CLI オプションから Codex モデル設定を組み立てる。 */
+const buildCodexModelOption = (options: PredictCommandOptions) => {
   if (options.model === undefined) {
     return {};
   }
@@ -218,8 +261,17 @@ const buildExtractRaceOptions = (options: CollectCommandOptions) => {
   return { model: options.model };
 };
 
+/** CLI オプションから予想方針ファイルの読み込み設定を組み立てる。 */
+const buildPolicyStoreOptions = (options: PredictCommandOptions): PolicyStoreOptions => {
+  if (options.policyPath === undefined) {
+    return {};
+  }
+
+  return { policyPath: options.policyPath };
+};
+
 /** CLI オプションから run store の読み書き設定を組み立てる。 */
-const buildRunStoreOptions = (options: CollectCommandOptions): RunStoreOptions => {
+const buildRunStoreOptions = (options: PredictCommandOptions): RunStoreOptions => {
   if (options.runsDir === undefined) {
     return {};
   }

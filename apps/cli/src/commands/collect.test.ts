@@ -33,8 +33,10 @@ describe("registerCollectCommand", () => {
           raceUrl: snapshot.racePage.sourceUrl,
           minDelayMs: 5000,
           horseDetailLimit: 1,
-          headless: true
+          headless: true,
+          onProgress: expect.any(Function)
         });
+        input.onProgress?.("netKeiba snapshot取得中です。");
         return snapshot;
       },
       extractRaceFromSnapshot: async (input) => {
@@ -68,7 +70,6 @@ describe("registerCollectCommand", () => {
       "node",
       "test",
       "collect",
-      "--race-url",
       snapshot.racePage.sourceUrl,
       "--runs-dir",
       rootDir,
@@ -77,8 +78,7 @@ describe("registerCollectCommand", () => {
       "--min-delay-ms",
       "5000",
       "--horse-detail-limit",
-      "1",
-      "--headless"
+      "1"
     ]);
     const actual = await readRace(race.id, { rootDir });
 
@@ -94,7 +94,16 @@ describe("registerCollectCommand", () => {
         observedAt: "2026-05-31T16:00:00+09:00"
       }
     });
-    expect(logs).toEqual([`race.json を保存しました: ${race.id}`]);
+    expect(logs).toEqual([
+      "レース取得を開始します。",
+      "netKeiba snapshot取得中です。",
+      "AIでレース情報を構造化しています。",
+      `レース情報を構造化しました: ${race.name} (${race.id})`,
+      "Open-Meteoから天気情報を取得しています。",
+      "天気情報を取得しました: 晴れ / 24.8℃ / 降水20% / 南西 12km/h",
+      "race.json を保存しています。",
+      `race.json を保存しました: ${race.id}`
+    ]);
   });
 
   test("AI構造化に失敗した場合はrace.jsonを保存しない", async () => {
@@ -119,7 +128,6 @@ describe("registerCollectCommand", () => {
       "node",
       "test",
       "collect",
-      "--race-url",
       snapshot.racePage.sourceUrl,
       "--runs-dir",
       rootDir
@@ -154,7 +162,6 @@ describe("registerCollectCommand", () => {
       "node",
       "test",
       "collect",
-      "--race-url",
       snapshot.racePage.sourceUrl,
       "--runs-dir",
       rootDir
@@ -164,9 +171,47 @@ describe("registerCollectCommand", () => {
     // Assert
     expect(actual).toEqual(race);
     expect(logs).toEqual([
+      "レース取得を開始します。",
+      "AIでレース情報を構造化しています。",
+      `レース情報を構造化しました: ${race.name} (${race.id})`,
+      "Open-Meteoから天気情報を取得しています。",
       "天気情報を保存しませんでした: Open-Meteo の天気取得に未対応の競馬場です: unknown",
+      "race.json を保存しています。",
       `race.json を保存しました: ${race.id}`
     ]);
+  });
+
+  test("互換オプションのrace URLでも取得できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const snapshot = createSnapshot();
+    const race = createRace(snapshot);
+    const program = createCollectProgram({
+      collectRaceSnapshot: async (input) => {
+        expect(input.raceUrl).toBe(snapshot.racePage.sourceUrl);
+        return snapshot;
+      },
+      extractRaceFromSnapshot: async () => race,
+      weatherProvider: {
+        getWeather: async () => ({})
+      },
+      log: () => {}
+    });
+
+    // Act
+    await program.parseAsync([
+      "node",
+      "test",
+      "collect",
+      "--race-url",
+      snapshot.racePage.sourceUrl,
+      "--runs-dir",
+      rootDir
+    ]);
+    const actual = await readRace(race.id, { rootDir });
+
+    // Assert
+    expect(actual).toEqual({ ...race, weather: {} });
   });
 });
 

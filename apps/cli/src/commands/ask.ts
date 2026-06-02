@@ -14,7 +14,7 @@ import {
 /** ask コマンドが受け取る CLI オプション。 */
 interface AskCommandOptions {
   /** 追加質問対象の race id。 */
-  raceId: string;
+  raceId?: string | undefined;
   /** Codex SDK に渡すモデル名。 */
   model?: string | undefined;
   /** 予想方針ファイルのパス。 */
@@ -26,7 +26,7 @@ interface AskCommandOptions {
 /** qa-history コマンドが受け取る CLI オプション。 */
 interface QaHistoryCommandOptions {
   /** 履歴表示対象の race id。 */
-  raceId: string;
+  raceId?: string | undefined;
   /** runs ディレクトリのルートパス。 */
   runsDir?: string | undefined;
 }
@@ -59,26 +59,44 @@ export const registerAskCommand = (
   program
     .command("ask")
     .description("Ask a follow-up question about a race")
-    .requiredOption("--race-id <raceId>", "Race ID")
+    .argument("[raceId]", "Race ID")
+    .argument("[question...]", "Question")
+    .option("--race-id <raceId>", "Race ID")
     .option("--model <model>", "Codex model")
     .option("--policy-path <path>", "Prediction policy file path")
     .option("--runs-dir <path>", "Runs root directory")
-    .argument("<question>", "Question")
-    .action(async (question: string, options: AskCommandOptions) => {
-      const runStoreOptions = buildRunStoreOptions(options);
-      const [race, prediction, history, policy] = await Promise.all([
-        deps.readRace(options.raceId, runStoreOptions),
-        deps.readPrediction(options.raceId, runStoreOptions),
-        deps.readQaEntries(options.raceId, runStoreOptions),
-        deps.readPredictionPolicy(buildPolicyStoreOptions(options))
-      ]);
-      const entry = await deps.askRace(
-        buildAskRaceInput({ race, prediction, policy, history, question, options })
-      );
-      await deps.appendQaEntry(entry, runStoreOptions);
-      deps.log(entry.answer);
-      deps.log(`qa.jsonl に追記しました: ${entry.id}`);
-    });
+    .action(
+      async (
+        raceIdOrQuestion: string | undefined,
+        questionParts: string[],
+        options: AskCommandOptions
+      ) => {
+        const input = resolveAskCommandInput(raceIdOrQuestion, questionParts, options);
+        const runStoreOptions = buildRunStoreOptions(options);
+        deps.log(`保存済みレースを読み込んでいます: ${input.raceId}`);
+        const [race, prediction, history, policy] = await Promise.all([
+          deps.readRace(input.raceId, runStoreOptions),
+          deps.readPrediction(input.raceId, runStoreOptions),
+          deps.readQaEntries(input.raceId, runStoreOptions),
+          deps.readPredictionPolicy(buildPolicyStoreOptions(options))
+        ]);
+        deps.log(`Codexで追加質問に回答しています: ${input.question}`);
+        const entry = await deps.askRace(
+          buildAskRaceInput({
+            race,
+            prediction,
+            policy,
+            history,
+            question: input.question,
+            options
+          })
+        );
+        deps.log("qa.jsonl に回答を追記しています。");
+        await deps.appendQaEntry(entry, runStoreOptions);
+        deps.log(entry.answer);
+        deps.log(`qa.jsonl に追記しました: ${entry.id}`);
+      }
+    );
 };
 
 /** 保存済みQ&A履歴をターミナルで確認する CLI コマンドを登録する。 */
@@ -91,11 +109,13 @@ export const registerQaHistoryCommand = (
   program
     .command("qa-history")
     .description("Show follow-up Q&A history about a race")
-    .requiredOption("--race-id <raceId>", "Race ID")
+    .argument("[raceId]", "Race ID")
+    .option("--race-id <raceId>", "Race ID")
     .option("--runs-dir <path>", "Runs root directory")
-    .action(async (options: QaHistoryCommandOptions) => {
-      const entries = await deps.readQaEntries(options.raceId, buildRunStoreOptions(options));
-      deps.log(formatQaHistory(options.raceId, entries));
+    .action(async (raceId: string | undefined, options: QaHistoryCommandOptions) => {
+      const resolvedRaceId = resolveRaceId(raceId, options);
+      const entries = await deps.readQaEntries(resolvedRaceId, buildRunStoreOptions(options));
+      deps.log(formatQaHistory(resolvedRaceId, entries));
     });
 };
 
@@ -110,6 +130,61 @@ const buildAskCommandDependencies = (dependencies: AskCommandDependencies) => {
     readRace: dependencies.readRace ?? readRace,
     log: dependencies.log ?? console.log
   };
+};
+
+interface ResolvedAskCommandInput {
+  /** 追加質問対象の race id。 */
+  raceId: string;
+  /** Codexへ渡す質問本文。 */
+  question: string;
+}
+
+/** ask の位置引数と互換オプションから race ID と質問本文を決める。 */
+const resolveAskCommandInput = (
+  raceIdOrQuestion: string | undefined,
+  questionParts: string[],
+  options: AskCommandOptions
+): ResolvedAskCommandInput => {
+  if (options.raceId !== undefined) {
+    const question = [raceIdOrQuestion, ...questionParts].filter(isNonEmptyText).join(" ");
+    if (question.length === 0) {
+      throw new Error("質問を指定してください。例: pnpm keiba ask --race-id <race-id> <question>");
+    }
+
+    return { raceId: options.raceId, question };
+  }
+
+  if (raceIdOrQuestion === undefined) {
+    throw new Error("race ID と質問を指定してください。例: pnpm keiba ask <race-id> <question>");
+  }
+  if (questionParts.length === 0) {
+    throw new Error("質問を指定してください。例: pnpm keiba ask <race-id> <question>");
+  }
+
+  return {
+    raceId: raceIdOrQuestion,
+    question: questionParts.join(" ")
+  };
+};
+
+/** 位置引数と互換オプションからQ&A履歴対象race IDを決める。 */
+const resolveRaceId = (raceId: string | undefined, options: QaHistoryCommandOptions): string => {
+  if (raceId !== undefined && options.raceId !== undefined && raceId !== options.raceId) {
+    throw new Error("race ID は位置引数または --race-id のどちらか一方で指定してください。");
+  }
+  if (raceId !== undefined) {
+    return raceId;
+  }
+  if (options.raceId !== undefined) {
+    return options.raceId;
+  }
+
+  throw new Error("race ID を指定してください。例: pnpm keiba qa-history <race-id>");
+};
+
+/** 空ではない文字列かどうかを判定する。 */
+const isNonEmptyText = (value: string | undefined): value is string => {
+  return value !== undefined && value.length > 0;
 };
 
 /** CLI オプションから run store の読み書き設定を組み立てる。 */
