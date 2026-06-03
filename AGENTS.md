@@ -51,12 +51,14 @@ keiba-ai-assistant/
         server/
           app.ts
           root.tsx
+          repositories/
           routes/
             home.ts
             races.ts
             collect.ts
             analyze.ts
             ask.ts
+          usecases/
         pages/
           Home.tsx
           races/
@@ -164,6 +166,14 @@ keiba-ai-assistant/
 
   .agents/
     skills/
+      keiba-web-coding/
+        SKILL.md
+        agents/
+          openai.yaml
+      keiba-artifact-reviewer/
+        SKILL.md
+        agents/
+          openai.yaml
       unit-test-writer/
         SKILL.md
         agents/
@@ -184,6 +194,10 @@ keiba-ai-assistant/
 - API専用エンドポイントを増やしすぎず、画面遷移と表示データはサーバー側で管理する。
 - 追加質問、分析実行、取得実行などの操作は必要に応じてHonoのrouteとして実装する。
 - 外部公開を前提にした認証、マルチユーザー、公開デプロイ設定は追加しない。
+- `apps/web` のserver側実装は Route / UseCase / Repository の分離を基準にする。
+- Route は入力受付、UseCase 呼び出し、Inertia page props または redirect の返却に留める。
+- UseCase は保存済みrunの取得、分析、追加質問などの業務ロジックを扱う。
+- Repository はDBではなく `runs/` 配下のJSON / JSONLを `packages/models` のdomain modelへ変換して返す。
 
 ## CLI構成
 
