@@ -11,6 +11,7 @@ describe("createShowRaceUseCase", () => {
     const qaEntries = [createQaEntry(race.id, "qa-fixture-001", "本命のリスクは？")];
     const showRaceUseCase = createShowRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async (raceId) => {
           expect(raceId).toBe(race.id);
           return race;
@@ -48,6 +49,7 @@ describe("createShowRaceUseCase", () => {
     const askError = "Codexの実行に失敗しました。";
     const showRaceUseCase = createShowRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async () => race,
         findPredictionByRaceId: async () => null,
         findQaEntriesByRaceId: async () => [],
@@ -75,6 +77,7 @@ describe("createShowRaceUseCase", () => {
     const raceId = "missing-race";
     const showRaceUseCase = createShowRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async () => null,
         findPredictionByRaceId: async () => {
           throw new Error("Raceがない場合はpredictionを読まない");
@@ -106,6 +109,7 @@ describe("createShowRaceUseCase", () => {
     const race = parseRace(sampleRace);
     const showRaceUseCase = createShowRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async () => race,
         findPredictionByRaceId: async () => null,
         findQaEntriesByRaceId: async () => [],
@@ -163,5 +167,23 @@ const createQaEntry = (raceId: string, id: string, question: string): QaEntry =>
     question,
     answer: `${question}への回答です。`,
     createdAt: "2026-05-31T06:10:00.000Z"
+  };
+};
+
+/** 詳細表示usecaseでは使わないRunRepositoryメソッドを失敗スタブとして作る。 */
+const createUnusedRunRepositoryMethods = () => {
+  return {
+    findSavedRaceRuns: async () => {
+      throw new Error("詳細表示ではrun一覧を読まない");
+    },
+    saveRace: async () => {
+      throw new Error("詳細表示ではRaceを保存しない");
+    },
+    savePrediction: async () => {
+      throw new Error("詳細表示ではPredictionを保存しない");
+    },
+    invalidateAnalysis: async () => {
+      throw new Error("詳細表示では既存分析を無効化しない");
+    }
   };
 };

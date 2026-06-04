@@ -7,6 +7,9 @@ import { parseRace, type Prediction, type QaEntry } from "@keiba-ai-assistant/mo
 import { createRunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
 import {
   appendQaEntry,
+  listRuns,
+  readPrediction,
+  readRace,
   readQaEntries,
   writePrediction,
   writeRace
@@ -26,6 +29,32 @@ afterEach(async () => {
 });
 
 describe("createRunRepository", () => {
+  test("保存済みrun一覧をRaceモデル付きで取得できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const race = parseRace(sampleRace);
+    const prediction = createPrediction(race.id);
+    const qaEntry = createQaEntry(race.id, "qa-fixture-001", "本命のリスクは？");
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+    await writeRace(race, { rootDir });
+    await writePrediction(prediction, { rootDir });
+    await appendQaEntry(qaEntry, { rootDir });
+
+    // Act
+    const actual = await repository.findSavedRaceRuns();
+
+    // Assert
+    expect(actual).toEqual([
+      {
+        raceId: race.id,
+        race,
+        hasPrediction: true,
+        hasQa: true,
+        updatedAt: expect.any(String)
+      }
+    ]);
+  });
+
   test("保存済みrace.jsonをRaceモデルとして取得できる", async () => {
     // Arrange
     const rootDir = await createTempRootDir();
@@ -121,6 +150,48 @@ describe("createRunRepository", () => {
 
     // Assert
     expect(actual).toEqual([entry]);
+  });
+
+  test("RaceとPredictionを保存できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const race = parseRace(sampleRace);
+    const prediction = createPrediction(race.id);
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+
+    // Act
+    await repository.saveRace(race);
+    await repository.savePrediction(prediction);
+    const actualRace = await readRace(race.id, { rootDir });
+    const actualPrediction = await readPrediction(race.id, { rootDir });
+
+    // Assert
+    expect(actualRace).toEqual(race);
+    expect(actualPrediction).toEqual(prediction);
+  });
+
+  test("既存分析とQ&A履歴を無効化できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const race = parseRace(sampleRace);
+    const prediction = createPrediction(race.id);
+    const entry = createQaEntry(race.id, "qa-fixture-001", "相手候補は？");
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+    await writeRace(race, { rootDir });
+    await writePrediction(prediction, { rootDir });
+    await appendQaEntry(entry, { rootDir });
+
+    // Act
+    await repository.invalidateAnalysis(race.id);
+    const [summary] = await listRuns({ rootDir });
+
+    // Assert
+    expect(summary).toMatchObject({
+      raceId: race.id,
+      hasRace: true,
+      hasPrediction: false,
+      hasQa: false
+    });
   });
 });
 

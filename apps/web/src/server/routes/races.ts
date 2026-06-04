@@ -11,7 +11,7 @@ export interface RaceRoutesDependencies {
 export const createRaceRoutes = (dependencies: RaceRoutesDependencies): Hono => {
   const raceRoutes = new Hono();
 
-  raceRoutes.get("/races", (c) => c.render("races/Index", { races: [] }));
+  raceRoutes.get("/races", (c) => c.redirect("/", 302));
 
   raceRoutes.get("/races/:raceId", async (c) => {
     const props = await dependencies.showRaceUseCase({
