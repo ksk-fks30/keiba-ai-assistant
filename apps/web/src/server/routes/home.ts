@@ -1,5 +1,8 @@
 import { Hono } from "hono";
-import type { PredictRaceJobStore } from "@keiba-ai-assistant/web/server/usecases/predict-race-job-store";
+import {
+  isPredictRaceJobAlreadyRunningError,
+  type PredictRaceJobStore
+} from "@keiba-ai-assistant/web/server/usecases/predict-race-job-store";
 import type { ShowHomeUseCase } from "@keiba-ai-assistant/web/server/usecases/show-home";
 
 /** トップ画面routeの依存関係。 */
@@ -20,15 +23,23 @@ export const createHomeRoutes = (dependencies: HomeRoutesDependencies): Hono => 
   });
 
   homeRoutes.post("/races/predict-jobs", async (c) => {
-    const job = dependencies.predictRaceJobStore.start({
-      raceUrl: await readRaceUrl({
-        contentType: c.req.header("content-type"),
-        readJson: async () => await c.req.json(),
-        readFormData: async () => await c.req.formData()
-      })
-    });
+    try {
+      const job = dependencies.predictRaceJobStore.start({
+        raceUrl: await readRaceUrl({
+          contentType: c.req.header("content-type"),
+          readJson: async () => await c.req.json(),
+          readFormData: async () => await c.req.formData()
+        })
+      });
 
-    return c.json(job, 202);
+      return c.json(job, 202);
+    } catch (error) {
+      if (isPredictRaceJobAlreadyRunningError(error)) {
+        return c.json({ error: error.message, job: error.activeJob }, 409);
+      }
+
+      throw error;
+    }
   });
 
   homeRoutes.get("/races/predict-jobs/:jobId", (c) => {

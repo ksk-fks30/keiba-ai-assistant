@@ -164,6 +164,34 @@ describe("createPredictRaceUseCase", () => {
     await expect(actual).rejects.toThrow("netKeiba のレースURLを入力してください。");
   });
 
+  test("netKeibaに似た別ホスト名では取得を実行しない", async () => {
+    // Arrange
+    const predictRaceUseCase = createPredictRaceUseCase({
+      runRepository: createUnusedRunRepositoryMethods(),
+      policyRepository: {
+        readPredictionPolicy: async () => {
+          throw new Error("ホスト名不正時は予想方針を読まない");
+        }
+      },
+      collectRaceSnapshot: async () => {
+        throw new Error("ホスト名不正時はnetKeibaを開かない");
+      },
+      extractRaceFromSnapshot: async () => {
+        throw new Error("ホスト名不正時はRace構造化を実行しない");
+      },
+      weatherProvider: createWeatherProvider({ weather: createWeather() }),
+      analyzeRace: async () => {
+        throw new Error("ホスト名不正時は分析を実行しない");
+      }
+    });
+
+    // Act
+    const actual = predictRaceUseCase({ raceUrl: "https://evilnetkeiba.com/race?race_id=1" });
+
+    // Assert
+    await expect(actual).rejects.toThrow("netKeiba のレースURLを入力してください。");
+  });
+
   test("race_idがないURLでは取得を実行しない", async () => {
     // Arrange
     const predictRaceUseCase = createPredictRaceUseCase({

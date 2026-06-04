@@ -36,6 +36,12 @@ export interface PredictRaceJobStore {
   findById: (jobId: string) => PredictRaceJobSnapshot | null;
 }
 
+/** 実行中ジョブがあるため新規ジョブを開始できないことを表すError。 */
+export interface PredictRaceJobAlreadyRunningError extends Error {
+  /** 実行中のジョブsnapshot。 */
+  activeJob: PredictRaceJobSnapshot;
+}
+
 /** レース解析ジョブstoreの依存関係。 */
 export interface CreatePredictRaceJobStoreDependencies {
   /** 実際のレース取得とAI分析を行うusecase。 */
@@ -60,6 +66,15 @@ interface PredictRaceJobRecord {
 
 const defaultMaxMessages = 200;
 
+/** unknownが実行中ジョブによる開始拒否Errorかどうかを判定する。 */
+export const isPredictRaceJobAlreadyRunningError = (
+  error: unknown
+): error is PredictRaceJobAlreadyRunningError => {
+  return (
+    error instanceof Error && "activeJob" in error && isPredictRaceJobSnapshot(error.activeJob)
+  );
+};
+
 /** オンメモリのレース解析ジョブstoreを作る。 */
 export const createPredictRaceJobStore = (
   dependencies: CreatePredictRaceJobStoreDependencies
@@ -72,6 +87,11 @@ export const createPredictRaceJobStore = (
 
   return {
     start: (input) => {
+      const activeJob = findActiveJob(jobs);
+      if (activeJob !== null) {
+        throw createPredictRaceJobAlreadyRunningError(toSnapshot(activeJob));
+      }
+
       const timestamp = now().toISOString();
       const job: PredictRaceJobRecord = {
         id: createJobId(),
@@ -107,6 +127,17 @@ export const createPredictRaceJobStore = (
   };
 };
 
+/** 実行中または開始待ちのジョブを探す。 */
+const findActiveJob = (jobs: Map<string, PredictRaceJobRecord>): PredictRaceJobRecord | null => {
+  for (const job of jobs.values()) {
+    if (isPredictRaceJobActive(job)) {
+      return job;
+    }
+  }
+
+  return null;
+};
+
 const runJob = async (input: {
   job: PredictRaceJobRecord;
   input: StartPredictRaceJobInput;
@@ -138,6 +169,11 @@ const runJob = async (input: {
     updateJobStatus(input.job, "failed", input.now);
     appendMessage(input.job, `レース解析に失敗しました: ${message}`, input.now, input.maxMessages);
   }
+};
+
+/** ジョブ状態が新規開始を止めるべき実行中状態かどうかを返す。 */
+const isPredictRaceJobActive = (job: Pick<PredictRaceJobRecord, "status">): boolean => {
+  return job.status === "queued" || job.status === "running";
 };
 
 /** ジョブ状態を更新し、更新日時も同時に進める。 */
@@ -182,6 +218,42 @@ const toSnapshot = (job: PredictRaceJobRecord): PredictRaceJobSnapshot => {
   }
 
   return snapshot;
+};
+
+/** 実行中ジョブがあるため新規ジョブを開始できないErrorを作る。 */
+const createPredictRaceJobAlreadyRunningError = (
+  activeJob: PredictRaceJobSnapshot
+): PredictRaceJobAlreadyRunningError => {
+  const error = new Error(
+    "別のレース解析ジョブが実行中です。"
+  ) as PredictRaceJobAlreadyRunningError;
+  error.activeJob = activeJob;
+
+  return error;
+};
+
+/** unknownがPredictRaceJobSnapshotとして扱えるかを判定する。 */
+const isPredictRaceJobSnapshot = (value: unknown): value is PredictRaceJobSnapshot => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  return (
+    "id" in value &&
+    typeof value.id === "string" &&
+    "status" in value &&
+    (value.status === "queued" ||
+      value.status === "running" ||
+      value.status === "succeeded" ||
+      value.status === "failed") &&
+    "messages" in value &&
+    Array.isArray(value.messages) &&
+    value.messages.every((message) => typeof message === "string") &&
+    "createdAt" in value &&
+    typeof value.createdAt === "string" &&
+    "updatedAt" in value &&
+    typeof value.updatedAt === "string"
+  );
 };
 
 /** unknown の例外値から表示用メッセージを取り出す。 */

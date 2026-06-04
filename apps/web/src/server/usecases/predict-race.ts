@@ -111,7 +111,7 @@ const normalizeNetkeibaRaceUrl = (value: string): string => {
     throw new Error("URLの形式が正しくありません。");
   }
 
-  if (!["http:", "https:"].includes(url.protocol) || !url.hostname.endsWith("netkeiba.com")) {
+  if (!["http:", "https:"].includes(url.protocol) || !isNetkeibaHostname(url.hostname)) {
     throw new Error("netKeiba のレースURLを入力してください。");
   }
   if (!url.searchParams.has("race_id")) {
@@ -119,6 +119,13 @@ const normalizeNetkeibaRaceUrl = (value: string): string => {
   }
 
   return url.toString();
+};
+
+/** URL hostname が netKeiba 本体またはサブドメインかどうかを境界つきで判定する。 */
+const isNetkeibaHostname = (hostname: string): boolean => {
+  const normalizedHostname = hostname.toLowerCase();
+
+  return normalizedHostname === "netkeiba.com" || normalizedHostname.endsWith(".netkeiba.com");
 };
 
 /** Web入力から netKeiba snapshot 取得入力を作る。 */
