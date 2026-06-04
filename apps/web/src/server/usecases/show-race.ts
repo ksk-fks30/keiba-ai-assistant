@@ -1,4 +1,4 @@
-import type { Race } from "@keiba-ai-assistant/models";
+import type { Prediction, Race } from "@keiba-ai-assistant/models";
 import type { RunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
 
 /** race詳細ページの入力。 */
@@ -22,16 +22,27 @@ export interface RaceShowPageProps {
   raceId: string;
   /** 保存済みrace.jsonを検証したdomain model。見つからない場合はnull。 */
   race: Race | null;
+  /** 保存済みprediction.jsonを検証したdomain model。見つからない場合はnull。 */
+  prediction: Prediction | null;
 }
 
 /** repositoryを注入して、race IDからダッシュボード表示用propsを取得するusecaseを作る。 */
 export const createShowRaceUseCase = (dependencies: ShowRaceDependencies): ShowRaceUseCase => {
   return async (input) => {
     const race = await dependencies.runRepository.findRaceById(input.raceId);
+    if (race === null) {
+      return {
+        raceId: input.raceId,
+        race: null,
+        prediction: null
+      };
+    }
+    const prediction = await dependencies.runRepository.findPredictionByRaceId(input.raceId);
 
     return {
       raceId: input.raceId,
-      race
+      race,
+      prediction
     };
   };
 };
