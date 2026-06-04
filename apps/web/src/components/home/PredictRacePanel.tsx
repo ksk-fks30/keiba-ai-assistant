@@ -41,7 +41,8 @@ export const PredictRacePanel = () => {
             <button
               type="submit"
               disabled={!predictRaceJob.canSubmit}
-              className="inline-flex shrink-0 items-center gap-2 rounded-md bg-turf px-3 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-turf-dark disabled:cursor-not-allowed disabled:bg-app-border disabled:text-app-subtle"
+              className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md bg-turf px-3 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-turf-dark disabled:cursor-not-allowed disabled:bg-app-border disabled:text-app-subtle"
+              style={{ cursor: predictRaceJob.canSubmit ? "pointer" : "not-allowed" }}
             >
               {predictRaceJob.isStartingJob || predictRaceJob.isJobActive ? (
                 <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
