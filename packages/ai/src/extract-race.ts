@@ -63,13 +63,14 @@ const buildCodexSdkRuntimeOptions = (
 
 /** AIのレース下書きにブラウザ取得由来のメタ情報を付与し、保存用Raceにする。 */
 const buildRace = (input: ExtractRaceFromSnapshotInput, draft: RaceDraft): Race => {
-  const { startTime, ...raceDraft } = draft;
+  const { startTime, direction, ...raceDraft } = draft;
 
   return parseRace({
     ...raceDraft,
     sourceUrl: input.snapshot.racePage.sourceUrl,
     collectedAt: buildCollectedAt(input),
     ...buildNullableStringProperty("startTime", startTime),
+    ...buildNullableStringProperty("direction", direction),
     horses: draft.horses.map(mapDraftHorse)
   });
 };
@@ -85,7 +86,10 @@ const mapDraftHorse = (horse: RaceDraftHorse) => {
     id: horse.id,
     name: horse.name,
     horseNumber: horse.horseNumber,
+    ...buildNullableStringProperty("sex", horse.sex),
+    ...buildNullableNumberProperty("age", horse.age),
     jockey: horse.jockey,
+    ...buildNullableStringProperty("trainer", horse.trainer),
     ...buildNullableNumberProperty("bodyWeightKg", horse.bodyWeightKg),
     ...buildNullableNumberProperty("bodyWeightDiffKg", horse.bodyWeightDiffKg),
     ...buildNullableNumberProperty("odds", horse.odds),

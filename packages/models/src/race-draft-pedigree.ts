@@ -8,7 +8,7 @@ export const raceDraftPedigreeSchema = z.object({
   dam: z.string(),
   // 母父名。不明な場合は空文字を入れる。
   damSire: z.string(),
-  // 距離や馬場適性の判断に使う血統メモ。
+  // 距離、馬場、脚質、近親実績など予想判断に使う血統補足文。
   familyNotes: z.array(z.string())
 });
 

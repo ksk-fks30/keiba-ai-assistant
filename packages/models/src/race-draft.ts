@@ -16,6 +16,8 @@ export const raceDraftSchema = z.object({
   surface: raceSurfaceSchema,
   // レース距離。メートル単位。
   distanceMeters: z.number().int().positive(),
+  // コースの回り方向またはレイアウト表記。不明な場合は null を入れる。
+  direction: z.string().nullable(),
   // 出走馬一覧。
   horses: z.array(raceDraftHorseSchema).min(1)
 });

@@ -1,5 +1,6 @@
 import devServer from "@hono/vite-dev-server";
 import babel from "@rolldown/plugin-babel";
+import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -8,6 +9,7 @@ export default defineConfig({
     devServer({
       entry: "src/server/app.ts"
     }),
+    tailwindcss(),
     react(),
     await babel({
       presets: [reactCompilerPreset()]
