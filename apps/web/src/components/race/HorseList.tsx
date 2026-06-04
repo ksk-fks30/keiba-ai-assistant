@@ -12,15 +12,15 @@ interface HorseListProps {
 /** race.json に含まれる出走馬、馬体重、オッズ、血統、直近成績を表示する。 */
 export const HorseList = ({ horses }: HorseListProps) => {
   return (
-    <section className="rounded-panel border border-app-border bg-app-surface shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-app-border px-5 py-4">
+    <section className="shrink-0 overflow-hidden rounded-panel border border-app-border bg-app-surface shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-app-border-soft px-5 py-4">
         <div>
           <h2 className="text-lg font-bold text-app-text">出走馬</h2>
           <p className="mt-1 text-sm text-app-subtle">{horses.length}頭</p>
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full border-b border-app-border text-left text-sm">
+        <table className="min-w-full border-b border-app-border-soft text-left text-sm">
           <thead className="bg-app-muted text-xs font-semibold text-app-subtle">
             <tr>
               <th className="w-14 px-4 py-3">枠</th>
@@ -33,7 +33,7 @@ export const HorseList = ({ horses }: HorseListProps) => {
               <th className="px-4 py-3 pl-8">オッズ</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-app-border">
+          <tbody className="divide-y divide-app-border-soft">
             {horses.map((horse) => (
               <tr key={horse.id} className="align-middle">
                 <td className="px-4 py-3 font-semibold text-app-subtle">{horse.gateNumberLabel}</td>
@@ -88,7 +88,7 @@ const getPopularityCellColorClass = (popularity: number | undefined): string => 
 /** 各馬の血統メモと直近成績を表示する詳細カード。 */
 const HorseDetail = ({ horse }: { horse: HorseDashboardView }) => {
   return (
-    <article className="rounded-panel border border-app-border bg-white p-4">
+    <article className="rounded-panel border border-app-border-soft bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-app-subtle">
@@ -119,7 +119,7 @@ const HorseDetail = ({ horse }: { horse: HorseDashboardView }) => {
               <th className="py-2 pr-3">脚質</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-app-border">
+          <tbody className="divide-y divide-app-border-soft">
             {horse.pastPerformances.map((performance) => (
               <PastPerformanceRow
                 key={`${horse.id}-${performance.dateLabel}-${performance.raceName}`}
@@ -140,7 +140,7 @@ const PedigreeNotes = ({ notes }: { notes: string[] }) => {
   }
 
   return (
-    <section className="mt-3 rounded-md border border-app-border bg-app-muted px-3 py-3">
+    <section className="mt-3 rounded-md border border-app-border-soft bg-app-muted px-3 py-3">
       <h4 className="text-xs font-semibold text-app-subtle">血統補足</h4>
       <ul className="mt-2 space-y-1.5">
         {notes.map((note) => (

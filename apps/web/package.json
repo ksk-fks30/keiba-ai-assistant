@@ -15,6 +15,7 @@
     "@keiba-ai-assistant/scraper": "workspace:*",
     "@keiba-ai-assistant/storage": "workspace:*",
     "hono": "^4.12.23",
+    "lucide-react": "^1.17.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

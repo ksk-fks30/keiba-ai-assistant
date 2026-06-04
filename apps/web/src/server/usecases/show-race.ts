@@ -1,10 +1,12 @@
-import type { Prediction, Race } from "@keiba-ai-assistant/models";
+import type { Prediction, QaEntry, Race } from "@keiba-ai-assistant/models";
 import type { RunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
 
 /** race詳細ページの入力。 */
 export interface ShowRaceInput {
   /** URLパラメータで指定されたrace ID。 */
   raceId: string;
+  /** 直前の追加質問で発生したエラー。ない場合はundefined。 */
+  askError?: string | undefined;
 }
 
 /** race詳細ページusecaseの依存関係。 */
@@ -24,6 +26,10 @@ export interface RaceShowPageProps {
   race: Race | null;
   /** 保存済みprediction.jsonを検証したdomain model。見つからない場合はnull。 */
   prediction: Prediction | null;
+  /** 保存済みqa.jsonlを検証したdomain model配列。見つからない場合は空配列。 */
+  qaEntries: QaEntry[];
+  /** 直前の追加質問で発生したエラー。ない場合はnull。 */
+  askError: string | null;
 }
 
 /** repositoryを注入して、race IDからダッシュボード表示用propsを取得するusecaseを作る。 */
@@ -34,15 +40,22 @@ export const createShowRaceUseCase = (dependencies: ShowRaceDependencies): ShowR
       return {
         raceId: input.raceId,
         race: null,
-        prediction: null
+        prediction: null,
+        qaEntries: [],
+        askError: input.askError ?? null
       };
     }
-    const prediction = await dependencies.runRepository.findPredictionByRaceId(input.raceId);
+    const [prediction, qaEntries] = await Promise.all([
+      dependencies.runRepository.findPredictionByRaceId(input.raceId),
+      dependencies.runRepository.findQaEntriesByRaceId(input.raceId)
+    ]);
 
     return {
       raceId: input.raceId,
       race,
-      prediction
+      prediction,
+      qaEntries,
+      askError: input.askError ?? null
     };
   };
 };

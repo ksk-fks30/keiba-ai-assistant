@@ -14,7 +14,10 @@ export const createRaceRoutes = (dependencies: RaceRoutesDependencies): Hono => 
   raceRoutes.get("/races", (c) => c.render("races/Index", { races: [] }));
 
   raceRoutes.get("/races/:raceId", async (c) => {
-    const props = await dependencies.showRaceUseCase({ raceId: c.req.param("raceId") });
+    const props = await dependencies.showRaceUseCase({
+      raceId: c.req.param("raceId"),
+      askError: c.req.query("askError")
+    });
 
     if (props.race === null) {
       c.status(404);

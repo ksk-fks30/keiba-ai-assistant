@@ -13,7 +13,7 @@ interface RaceSummaryProps {
 /** race.json 由来のレース条件と天気をダッシュボード上部に表示する。 */
 export const RaceSummary = ({ race }: RaceSummaryProps) => {
   return (
-    <section className="rounded-panel border border-app-border bg-app-surface p-5 shadow-sm">
+    <section className="shrink-0 rounded-panel border border-app-border bg-app-surface p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-app-subtle">{race.id}</p>
@@ -44,7 +44,7 @@ export const RaceSummary = ({ race }: RaceSummaryProps) => {
 /** レース条件の1項目を表示する小カード。 */
 const MetricCard = ({ metric }: { metric: RaceMetricView }) => {
   return (
-    <div className="rounded-md border border-app-border bg-app-muted px-3 py-3">
+    <div className="rounded-md border border-app-border-soft bg-app-muted px-3 py-3">
       <dt className="text-xs font-medium text-app-subtle">{metric.label}</dt>
       <dd className="mt-1 text-sm font-semibold text-app-text">{metric.value}</dd>
     </div>

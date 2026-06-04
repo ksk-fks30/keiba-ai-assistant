@@ -27,6 +27,8 @@ export interface AskRaceInput {
   question: string;
   /** この質問で利用する Codex モデル名。 */
   model?: string;
+  /** Codex SDK 実行を待つ最大時間。未指定の場合はタイムアウトしない。 */
+  timeoutMs?: number;
   /** Q&A作成時刻を返す関数。テストや再実行で日時を固定する場合に使う。 */
   now?: () => Date;
   /** テストや差し替え実行で使う AI runtime。未指定なら Codex SDK runtime を使う。 */
@@ -43,16 +45,20 @@ export const askRace = async (input: AskRaceInput): Promise<QaEntry> => {
     question: input.question
   });
   const runtime = input.runtime ?? createCodexSdkRuntime(buildCodexSdkRuntimeOptions(input));
+  const timeout = createAskRaceTimeout(input.timeoutMs);
 
   // Codex には回答本文だけを要求し、Q&Aの識別情報はアプリ側で付与する。
-  const value = await runtime.generateJson({
-    prompt,
-    outputSchema: buildQaAnswerOutputSchema(),
-    model: input.model
-  });
-  const draft = parseQaAnswerDraft(value);
+  try {
+    const value = await raceWithTimeout(
+      runtime.generateJson(buildGenerateJsonRequest({ prompt, input, signal: timeout.signal })),
+      timeout.promise
+    );
+    const draft = parseQaAnswerDraft(value);
 
-  return buildQaEntry(input, normalizeAnswer(draft.answer));
+    return buildQaEntry(input, normalizeAnswer(draft.answer));
+  } finally {
+    timeout.dispose();
+  }
 };
 
 /** askRace の入力から Codex SDK runtime の初期化オプションだけを抽出する。 */
@@ -64,6 +70,78 @@ const buildCodexSdkRuntimeOptions = (input: AskRaceInput): CodexSdkRuntimeOption
   }
 
   return options;
+};
+
+/** Codex runtime へ渡すJSON生成リクエストを組み立てる。 */
+const buildGenerateJsonRequest = (input: {
+  prompt: string;
+  input: AskRaceInput;
+  signal: AbortSignal | undefined;
+}) => {
+  return {
+    prompt: input.prompt,
+    outputSchema: buildQaAnswerOutputSchema(),
+    ...(input.input.model === undefined ? {} : { model: input.input.model }),
+    ...(input.signal === undefined ? {} : { signal: input.signal })
+  };
+};
+
+/** 追加質問用のタイムアウト制御を作る。 */
+const createAskRaceTimeout = (
+  timeoutMs: number | undefined
+): {
+  signal: AbortSignal | undefined;
+  promise: Promise<never> | undefined;
+  dispose: () => void;
+} => {
+  if (timeoutMs === undefined) {
+    return {
+      signal: undefined,
+      promise: undefined,
+      dispose: () => {}
+    };
+  }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("timeoutMs は正の有限数で指定してください。");
+  }
+
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      // AbortSignalを通じてCodex CLI子プロセスにも中断を伝える。
+      controller.abort();
+      reject(new Error(buildTimeoutMessage(timeoutMs)));
+    }, timeoutMs);
+  });
+
+  return {
+    signal: controller.signal,
+    promise,
+    dispose: () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
+  };
+};
+
+/** Codex SDK実行とタイムアウトを競争させ、長時間待ち続けないようにする。 */
+const raceWithTimeout = async <Value>(
+  promise: Promise<Value>,
+  timeoutPromise: Promise<never> | undefined
+): Promise<Value> => {
+  if (timeoutPromise === undefined) {
+    return await promise;
+  }
+
+  return await Promise.race([promise, timeoutPromise]);
+};
+
+/** 追加質問がタイムアウトしたときに画面へ表示するメッセージを作る。 */
+const buildTimeoutMessage = (timeoutMs: number): string => {
+  const seconds = Math.ceil(timeoutMs / 1000);
+  return `Codex SDK の追加質問が ${seconds} 秒以内に完了しませんでした。時間をおいて再実行してください。`;
 };
 
 /** AIが answer 内にJSON文字列を入れた場合でも、保存前に回答本文へ正規化する。 */

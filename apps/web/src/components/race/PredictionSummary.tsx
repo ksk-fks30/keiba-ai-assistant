@@ -13,22 +13,22 @@ interface PredictionSummaryProps {
 export const PredictionSummary = ({ prediction, horses }: PredictionSummaryProps) => {
   if (prediction === null) {
     return (
-      <aside className="rounded-panel border border-app-border bg-app-surface p-5 shadow-sm">
+      <section className="p-5">
         <PanelHeader generatedAtLabel="未生成" />
-        <div className="mt-5 rounded-md border border-dashed border-app-border bg-app-muted px-4 py-5">
+        <div className="mt-5 rounded-md border border-dashed border-app-border-soft bg-app-muted px-4 py-5">
           <p className="text-sm font-semibold text-app-text">AI分析はまだありません</p>
           <p className="mt-2 text-sm leading-relaxed text-app-subtle">
             このレースの prediction.json がまだ保存されていません。
           </p>
         </div>
-      </aside>
+      </section>
     );
   }
 
   const horseNameById = buildHorseNameById(horses);
 
   return (
-    <aside className="rounded-panel border border-app-border bg-app-surface shadow-sm xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+    <>
       <div className="p-5">
         <PanelHeader generatedAtLabel={formatGeneratedAt(prediction.generatedAt)} />
         <section className="mt-5">
@@ -36,7 +36,7 @@ export const PredictionSummary = ({ prediction, horses }: PredictionSummaryProps
           <p className="mt-2 text-sm leading-relaxed text-app-text">{prediction.summary}</p>
         </section>
       </div>
-      <section className="border-t border-app-border p-5">
+      <section className="border-t border-app-border-soft p-5">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-sm font-bold text-app-text">馬別評価</h3>
           <span className="text-xs font-medium text-app-subtle">
@@ -45,7 +45,10 @@ export const PredictionSummary = ({ prediction, horses }: PredictionSummaryProps
         </div>
         <div className="mt-3 space-y-3">
           {prediction.evaluations.map((evaluation) => (
-            <article key={evaluation.horseId} className="rounded-md border border-app-border p-3">
+            <article
+              key={evaluation.horseId}
+              className="rounded-md border border-app-border-soft p-3"
+            >
               <div className="relative pr-14">
                 <div className="min-w-0">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -66,7 +69,7 @@ export const PredictionSummary = ({ prediction, horses }: PredictionSummaryProps
           ))}
         </div>
       </section>
-      <section className="border-t border-app-border p-5">
+      <section className="border-t border-app-border-soft p-5">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-sm font-bold text-app-text">買い目候補</h3>
           <span className="text-xs font-medium text-app-subtle">
@@ -77,7 +80,7 @@ export const PredictionSummary = ({ prediction, horses }: PredictionSummaryProps
           {prediction.betCandidates.map((candidate) => (
             <article
               key={`${candidate.type}-${candidate.horses.join("-")}-${candidate.stakeWeight}`}
-              className="rounded-md border border-app-border bg-app-muted p-3"
+              className="rounded-md border border-app-border-soft bg-app-muted p-3"
             >
               <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2">
                 <div>
@@ -92,7 +95,7 @@ export const PredictionSummary = ({ prediction, horses }: PredictionSummaryProps
                       .join(" / ")}
                   </p>
                 </div>
-                <div className="col-span-2 flex items-baseline gap-2 border-t border-app-border pt-2">
+                <div className="col-span-2 flex items-baseline gap-2 border-t border-app-border-soft pt-2">
                   <span className="text-xs font-semibold text-app-subtle">配分</span>
                   <span className="text-sm font-bold text-app-text">
                     {candidate.stakeWeight}/100
@@ -104,7 +107,7 @@ export const PredictionSummary = ({ prediction, horses }: PredictionSummaryProps
           ))}
         </div>
       </section>
-    </aside>
+    </>
   );
 };
 
@@ -115,7 +118,7 @@ const PanelHeader = ({ generatedAtLabel }: { generatedAtLabel: string }) => {
       <p className="text-xs font-semibold text-app-subtle">prediction.json</p>
       <div className="mt-2 flex items-start justify-between gap-3">
         <h2 className="text-xl font-bold text-app-text">AI分析</h2>
-        <span className="rounded-md border border-app-border px-2 py-1 text-xs font-semibold text-app-subtle">
+        <span className="rounded-md border border-app-border-soft px-2 py-1 text-xs font-semibold text-app-subtle">
           {generatedAtLabel}
         </span>
       </div>
