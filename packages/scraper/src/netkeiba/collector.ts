@@ -18,7 +18,7 @@ export interface CollectRaceSnapshotInput {
   raceUrl: string;
   /** ページ表示後に最低限待機する時間。ミリ秒単位。 */
   minDelayMs?: number;
-  /** レースページから遷移して取得する馬詳細ページの最大件数。0なら取得しない。 */
+  /** レースページから遷移して取得する馬詳細ページの最大件数。未指定なら全頭、0なら取得しない。 */
   horseDetailLimit?: number;
   /** Chromium を headless で起動するかどうか。 */
   headless?: boolean;
@@ -29,7 +29,6 @@ export interface CollectRaceSnapshotInput {
 }
 
 const defaultMinDelayMs = 5000;
-const defaultHorseDetailLimit = 18;
 
 /** netKeiba のレースページと馬詳細ページを1ページずつ開き、AI構造化に渡す軽量 snapshot を返す。 */
 export const collectRaceSnapshotFromNetkeiba = async (
@@ -77,13 +76,12 @@ const collectHorseDetailPages = async (
   racePage: SourcePageSnapshot,
   input: CollectRaceSnapshotInput
 ): Promise<SourcePageSnapshot[]> => {
-  const limit = input.horseDetailLimit ?? defaultHorseDetailLimit;
-  if (limit === 0) {
+  if (input.horseDetailLimit === 0) {
     reportProgress(input, "馬詳細ページの取得はスキップします。");
     return [];
   }
 
-  const links = findHorseDetailLinks(racePage).slice(0, limit);
+  const links = selectHorseDetailLinks(findHorseDetailLinks(racePage), input.horseDetailLimit);
   reportProgress(input, `馬詳細ページを取得します: ${links.length}件`);
   const snapshots: SourcePageSnapshot[] = [];
 
@@ -110,6 +108,18 @@ const collectHorseDetailPages = async (
   }
 
   return snapshots;
+};
+
+/** 馬詳細リンクの取得対象を、指定上限または全頭に絞る。 */
+const selectHorseDetailLinks = (
+  links: SourcePageSnapshot["links"],
+  horseDetailLimit: number | undefined
+): SourcePageSnapshot["links"] => {
+  if (horseDetailLimit === undefined) {
+    return links;
+  }
+
+  return links.slice(0, horseDetailLimit);
 };
 
 /** snapshot 内にアクセス制限や警告があれば取得を停止する。 */

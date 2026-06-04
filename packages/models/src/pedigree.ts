@@ -8,7 +8,7 @@ export const pedigreeSchema = z.object({
   dam: z.string().optional(),
   // 母父名。
   damSire: z.string().optional(),
-  // 距離や馬場適性の判断に使う血統メモ。
+  // 距離、馬場、脚質、近親実績など予想判断に使う血統補足文。
   familyNotes: z.array(z.string()).default([])
 });
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Keiba Web Coding"
+  short_description: "Hono + Inertia + React の Web UI を Route / UseCase / Repository 分離で実装する"
+  default_prompt: "keiba-ai-assistant の apps/web を実装・修正してください。Hono route は薄く保ち、UseCase で業務ロジックと Inertia page props の組み立て、Repository で runs JSON を packages/models の domain model に変換してください。DB は使わず、保存済み run の一覧・詳細・分析結果・Q&A をサーバー駆動SPAとして扱ってください。"
