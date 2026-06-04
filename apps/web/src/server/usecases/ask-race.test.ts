@@ -21,6 +21,7 @@ describe("createAskRaceUseCase", () => {
     let actualAskRaceInput: AskRaceInput | null = null;
     const askRaceUseCase = createAskRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async (raceId) => {
           expect(raceId).toBe(race.id);
           return race;
@@ -71,6 +72,7 @@ describe("createAskRaceUseCase", () => {
     const raceId = "missing-race";
     const askRaceUseCase = createAskRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async () => null,
         findPredictionByRaceId: async () => {
           throw new Error("Raceがない場合はpredictionを読まない");
@@ -104,6 +106,7 @@ describe("createAskRaceUseCase", () => {
     const race = parseRace(sampleRace);
     const askRaceUseCase = createAskRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async () => race,
         findPredictionByRaceId: async () => null,
         findQaEntriesByRaceId: async () => {
@@ -134,6 +137,7 @@ describe("createAskRaceUseCase", () => {
     // Arrange
     const askRaceUseCase = createAskRaceUseCase({
       runRepository: {
+        ...createUnusedRunRepositoryMethods(),
         findRaceById: async () => {
           throw new Error("空質問では保存済みレースを読まない");
         },
@@ -208,5 +212,23 @@ const createPredictionPolicy = (): PredictionPolicy => {
     path: "/tmp/policies/main.md",
     content: "架空レースでは先行力を重視する。",
     loadedAt: "2026-05-31T05:00:00.000Z"
+  };
+};
+
+/** 追加質問usecaseでは使わないRunRepositoryメソッドを失敗スタブとして作る。 */
+const createUnusedRunRepositoryMethods = () => {
+  return {
+    findSavedRaceRuns: async () => {
+      throw new Error("追加質問ではrun一覧を読まない");
+    },
+    saveRace: async () => {
+      throw new Error("追加質問ではRaceを保存しない");
+    },
+    savePrediction: async () => {
+      throw new Error("追加質問ではPredictionを保存しない");
+    },
+    invalidateAnalysis: async () => {
+      throw new Error("追加質問では既存分析を無効化しない");
+    }
   };
 };
