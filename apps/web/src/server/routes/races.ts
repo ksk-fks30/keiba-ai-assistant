@@ -1,11 +1,27 @@
 import { Hono } from "hono";
+import type { ShowRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/show-race";
 
-export const raceRoutes = new Hono();
+/** race route の依存関係。 */
+export interface RaceRoutesDependencies {
+  /** race詳細ページpropsを取得するusecase。 */
+  showRaceUseCase: ShowRaceUseCase;
+}
 
-raceRoutes.get("/races", (c) => c.render("races/Index", { races: [] }));
+/** usecaseを注入してrace関連routeを作る。 */
+export const createRaceRoutes = (dependencies: RaceRoutesDependencies): Hono => {
+  const raceRoutes = new Hono();
 
-raceRoutes.get("/races/:raceId", (c) =>
-  c.render("races/Show", {
-    raceId: c.req.param("raceId")
-  })
-);
+  raceRoutes.get("/races", (c) => c.render("races/Index", { races: [] }));
+
+  raceRoutes.get("/races/:raceId", async (c) => {
+    const props = await dependencies.showRaceUseCase({ raceId: c.req.param("raceId") });
+
+    if (props.race === null) {
+      c.status(404);
+    }
+
+    return c.render("races/Show", props);
+  });
+
+  return raceRoutes;
+};

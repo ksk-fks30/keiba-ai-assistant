@@ -4,7 +4,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
-      "@fixtures": fileURLToPath(new URL("./fixtures", import.meta.url))
+      "@fixtures": fileURLToPath(new URL("./fixtures", import.meta.url)),
+      "@keiba-ai-assistant/web": fileURLToPath(new URL("./apps/web/src", import.meta.url))
     }
   },
   test: {

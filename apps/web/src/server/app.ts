@@ -5,8 +5,13 @@ import { analyzeRoutes } from "@keiba-ai-assistant/web/server/routes/analyze";
 import { askRoutes } from "@keiba-ai-assistant/web/server/routes/ask";
 import { collectRoutes } from "@keiba-ai-assistant/web/server/routes/collect";
 import { homeRoutes } from "@keiba-ai-assistant/web/server/routes/home";
-import { raceRoutes } from "@keiba-ai-assistant/web/server/routes/races";
+import { createRaceRoutes } from "@keiba-ai-assistant/web/server/routes/races";
 import { rootView } from "@keiba-ai-assistant/web/server/root";
+import { createRunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
+import { createShowRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/show-race";
+
+const runRepository = createRunRepository();
+const showRaceUseCase = createShowRaceUseCase({ runRepository });
 
 export const app = new Hono();
 
@@ -18,7 +23,7 @@ app.use(
 );
 
 app.route("/", homeRoutes);
-app.route("/", raceRoutes);
+app.route("/", createRaceRoutes({ showRaceUseCase }));
 app.route("/", collectRoutes);
 app.route("/", analyzeRoutes);
 app.route("/", askRoutes);

@@ -104,7 +104,7 @@ describe("registerQaHistoryCommand", () => {
       [
         `Q&A履歴: ${raceId}`,
         "",
-        `[1] ${entry.createdAt}`,
+        "[1] 26/05/31 15:00",
         `Q: ${entry.question}`,
         `A: ${entry.answer}`
       ].join("\n")

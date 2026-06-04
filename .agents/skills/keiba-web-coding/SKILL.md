@@ -17,6 +17,7 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 - 編集前に対象ファイルを読み直す。
 - 内部 import は `@keiba-ai-assistant/...` を使い、相対 import は使わない。
 - 関数定義は原則として `const` の arrow function で書く。
+- UIスタイリングは Tailwind CSS v4 を使い、`apps/web/src/styles/app.css` を入口にする。
 - React Compiler が有効なため、描画最適化だけを目的に `useMemo`、`useCallback`、`React.memo` を追加しない。
 - 実装完了時は `pnpm test`、`pnpm lint`、`pnpm typecheck` を実行する。
 
@@ -38,17 +39,21 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 ### Route
 
 - Hono route は薄く保つ。
+- UseCase は route 生成時の依存としてDIで受け取る。
 - やることは「入力を受ける」「UseCase を呼ぶ」「Inertia page props や redirect を返す」に寄せる。
 - route 内に JSON 読み込み、domain parse、表示用 props の組み立てを直書きしない。
+- route handler 内で UseCase や Repository を生成しない。
 - 画面表示は `c.render(page, props)` を使い、API 専用エンドポイントを不要に増やさない。
 
 ### UseCase
 
 - Repository を組み合わせて画面や操作に必要な業務ロジックを実行する。
+- Repository は usecase 生成時の依存としてDIで受け取る。
 - run の存在確認、race / prediction / Q&A の組み合わせ、分析や追加質問の実行順制御をここに置く。
 - Inertia page props として route に渡せる返却値を組み立てる。
-- 表示用整形が複数箇所で重複する場合は、小さな mapper / helper に切り出す。
+- Inertia page props には `packages/models` の domain model を渡し、表示ラベルやメトリクス配列などのUI整形は持ち込まない。
 - Hono の `Context` やファイルパス詳細は持ち込まない。
+- usecase 実行中に Repository を生成しない。
 - 依存オブジェクトの型は `type` / `interface` に切り出す。
 
 ### Repository
@@ -61,8 +66,9 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 
 ### Page / Component
 
-- Page は Inertia props を受け取り、画面構成を接続する。
+- Page は Inertia props として受け取った domain model を表示用データへ加工し、画面構成を接続する。
 - UI の細部は `components/` に分ける。
+- 表示用データへの加工が多い場合は、React側のhookやhelperに分離する。
 - 長時間操作やフォーム送信は、ユーザーが処理状態を理解できる文言と状態を持つ。
 - 操作説明のためだけの大きなテキストやランディングページ風の装飾は避け、保存済み run を確認・質問する実用画面を優先する。
 
@@ -70,9 +76,9 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 
 1. 必要な domain model と storage API が既にあるか確認する。
 2. Repository を作り、保存済み JSON を domain model として取得できるようにする。
-3. UseCase を作り、画面や操作に必要なデータ取得と処理順をまとめる。
-4. Route を薄く実装して、UseCase の返却値を Inertia page props として渡す。
-5. Page / Component を実装し、既存の `AppLayout` と `race` コンポーネントの粒度に合わせる。
+3. Repository を依存として受け取る UseCase factory を作り、画面や操作に必要なdomain model取得と処理順をまとめる。
+4. UseCase を依存として受け取る Route factory を薄く実装して、UseCase の返却値を Inertia page props として渡す。
+5. Page / Component を実装し、React側でdomain modelを表示用データへ加工する。
 6. Repository / UseCase / Route / Component のうち、変更リスクに応じてテストを書く。
 
 ## 実装ルール
@@ -81,6 +87,7 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 - `packages/*` から `apps/web` へ依存させない。
 - Repository は `packages/storage` と `packages/models` に依存してよい。
 - Page props は明示的に型定義する。
+- server側のRoute / UseCase / Repositoryは表示用ラベルやCSS都合のview modelを作らない。
 - コメントは日本語で、処理順、設計意図、副作用、外部I/O、保存済みファイルの扱いが誤解されやすい箇所に置く。
 
 ## テスト方針
@@ -88,11 +95,11 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 - Repository: JSON / JSONL から domain model として読めることを確認する。
 - UseCase: race / prediction / Q&A の組み合わせ、欠損時の扱い、分析や質問の実行順、Inertia props の shape を確認する。
 - Route: Hono の request / response と page props の接続を確認する。
-- Component: props に対する主要表示とフォーム状態を確認する。
+- Component / Hook: props や domain model に対する主要表示、表示用データ変換、フォーム状態を確認する。
 
 ## 完了前チェック
 
 - Route にファイル読み込みや props 組み立てが漏れていない。
 - Repository が生 JSON ではなく domain model を返している。
-- Page / Component が domain model 変換を抱えていない。
+- server側に表示用データ変換が漏れていない。
 - `pnpm test`、`pnpm lint`、`pnpm typecheck` を実行した。

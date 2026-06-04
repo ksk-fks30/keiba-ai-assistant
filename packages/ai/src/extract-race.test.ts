@@ -15,12 +15,16 @@ describe("extractRaceFromSnapshot", () => {
         startTime: "2026-05-31T15:40:00+09:00",
         surface: "turf",
         distanceMeters: 1600,
+        direction: "左 C",
         horses: [
           {
             id: "fixture-horse-001",
             name: "シラユキコード",
             horseNumber: 1,
+            sex: "牝",
+            age: 4,
             jockey: "架空 太郎",
+            trainer: "架空 厩舎",
             bodyWeightKg: 480,
             bodyWeightDiffKg: 2,
             odds: 3.2,
@@ -72,12 +76,16 @@ describe("extractRaceFromSnapshot", () => {
       startTime: "2026-05-31T15:40:00+09:00",
       surface: "turf",
       distanceMeters: 1600,
+      direction: "左 C",
       horses: [
         {
           id: "fixture-horse-001",
           name: "シラユキコード",
           horseNumber: 1,
+          sex: "牝",
+          age: 4,
           jockey: "架空 太郎",
+          trainer: "架空 厩舎",
           bodyWeightKg: 480,
           bodyWeightDiffKg: 2,
           odds: 3.2,
@@ -123,6 +131,7 @@ describe("extractRaceFromSnapshot", () => {
       startTime: null,
       surface: "turf",
       distanceMeters: 1600,
+      direction: null,
       horses: []
     });
 
@@ -143,12 +152,16 @@ describe("extractRaceFromSnapshot", () => {
       startTime: null,
       surface: "turf",
       distanceMeters: 1600,
+      direction: null,
       horses: [
         {
           id: "fixture-horse-001",
           name: "シラユキコード",
           horseNumber: 1,
+          sex: null,
+          age: null,
           jockey: "架空 太郎",
+          trainer: null,
           bodyWeightKg: null,
           bodyWeightDiffKg: null,
           odds: null,
@@ -168,6 +181,8 @@ describe("extractRaceFromSnapshot", () => {
     const actual = await extractRaceFromSnapshot({ snapshot, runtime });
 
     // Assert
+    expect(actual.direction).toBeUndefined();
+    expect(actual.startTime).toBeUndefined();
     expect(actual.horses[0]).toEqual({
       id: "fixture-horse-001",
       name: "シラユキコード",

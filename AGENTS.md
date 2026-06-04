@@ -189,15 +189,17 @@ keiba-ai-assistant/
 - React Fast Refreshのpreambleは `apps/web/src/client.tsx` の `@vitejs/plugin-react/preamble` importで読み込む。
 - React Compilerは `apps/web/vite.config.ts` で `@vitejs/plugin-react` の `reactCompilerPreset` と `@rolldown/plugin-babel` により有効化済みである。
 - React Compilerが通常の描画最適化を担うため、Reactコンポーネントでは描画最適化だけを目的に `useMemo`、`useCallback`、`React.memo` を追加しない。参照同一性が外部APIの契約になる場合、計算が実測上重い場合、またはプロファイルで必要性が確認できた場合に限って手動メモ化を使う。
+- `apps/web` のUIスタイリングはTailwind CSS v4を使い、Vite連携は `@tailwindcss/vite` で行う。
 - 画面はサーバー駆動SPAとして扱う。
 - レースページはHonoのサーバー側ルーティングからInertiaページとして描画する。
 - API専用エンドポイントを増やしすぎず、画面遷移と表示データはサーバー側で管理する。
 - 追加質問、分析実行、取得実行などの操作は必要に応じてHonoのrouteとして実装する。
 - 外部公開を前提にした認証、マルチユーザー、公開デプロイ設定は追加しない。
 - `apps/web` のserver側実装は Route / UseCase / Repository の分離を基準にする。
-- Route は入力受付、UseCase 呼び出し、Inertia page props または redirect の返却に留める。
-- UseCase は保存済みrunの取得、分析、追加質問などの業務ロジックを扱う。
+- Route はUseCaseをDIで受け取り、入力受付、UseCase 呼び出し、Inertia page props または redirect の返却に留める。
+- UseCase はRepositoryをDIで受け取り、保存済みrunの取得、分析、追加質問などの業務ロジックを扱い、Inertia props には `packages/models` のdomain modelを渡す。
 - Repository はDBではなく `runs/` 配下のJSON / JSONLを `packages/models` のdomain modelへ変換して返す。
+- React view側は受け取ったdomain modelを表示用データへ加工し、表示整形ロジックが多い場合はReact側のhookやhelperへ分離する。
 
 ## CLI構成
 
@@ -312,7 +314,7 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 
 - AI分析にはCodex SDKを使用する。
 - netKeiba取得では、ブラウザ操作で得た `SourcePageSnapshot` をCodex SDKに渡し、`RaceDraft` JSONとして構造化する。
-- `collect` は `--horse-detail-limit` で馬詳細ページへの遷移件数を制御する。0の場合は馬詳細ページを取得しない。
+- `collect` は `--horse-detail-limit` で馬詳細ページへの遷移件数を制御する。未指定の場合はレースページ内の馬詳細リンク全件を取得し、0の場合は馬詳細ページを取得しない。
 - `packages/ai` の Codex SDK runtime は `@openai/codex-sdk` を使用し、分析時は `packages/models` の `predictionDraftSchema` から生成した structured output schema を渡して `PredictionDraft` 形式のJSON出力を要求する。
 - Codex SDK分析は、ローカルPCに導入済みでChatGPTログイン済みのCodex CLIを前提にする。
 - Codex SDKにはAPI keyや独自の環境変数を渡さず、Codex CLIの通常の認証状態を使用する。
@@ -320,8 +322,10 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 - netKeiba取得の `sourceUrl` と `collectedAt` はAIに生成させず、ブラウザ操作で得た `SourcePageSnapshot` からアプリ側で付与して `Race` とする。
 - netKeiba取得の `startTime` はレースページsnapshotから `RaceDraft` に構造化し、不明な場合は `null` とする。
 - `RaceDraft` の `startTime` が `null` の場合、保存用 `Race` へ変換するときに省略する。
-- netKeiba取得の出走馬ごとの馬体重、馬体重増減、オッズ、人気はレースページsnapshotから `RaceDraftHorse` に構造化し、不明な値は `null` とする。
-- `RaceDraftHorse` の `null` 数値項目は保存用 `Race` へ変換するときに省略し、`Horse` の任意項目として扱う。
+- netKeiba取得の `direction` はレースページの距離やコース条件にある「左」「右」「外」「内」「A/B/C/D」などの回り方向やコース表記から `RaceDraft` に構造化し、不明な場合は `null` とする。
+- `RaceDraft` の `direction` が `null` の場合、保存用 `Race` へ変換するときに省略する。
+- netKeiba取得の出走馬ごとの性別、馬齢、調教師、馬体重、馬体重増減、オッズ、人気はレースページsnapshotから `RaceDraftHorse` に構造化し、不明な値は `null` とする。
+- `RaceDraftHorse` の `null` 項目は保存用 `Race` へ変換するときに省略し、`Horse` の任意項目として扱う。
 - `betCandidates[].stakeWeight` は買い目全体を100とした0から100の整数とする。
 - Codex SDKから返った値は保存前に必ず `parsePrediction` を通す。
 - Codex SDKから返った `RaceDraft` は `parseRaceDraft` を通し、`Race` として保存する前に必ず `parseRace` を通す。
@@ -351,11 +355,13 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 - 発走予定日時
 - 距離
 - 芝またはダート
+- 回り方向とコース表記
 - 出走馬一覧
 - 各馬の過去走
 - 血統
 - 騎手
 - 調教師
+- 性齢
 - 馬体重と増減
 - オッズ
 - 人気

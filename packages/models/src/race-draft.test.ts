@@ -11,12 +11,16 @@ describe("parseRaceDraft", () => {
       startTime: "2026-05-31T15:40:00+09:00",
       surface: "turf",
       distanceMeters: 1600,
+      direction: "左 C",
       horses: [
         {
           id: "fixture-horse-001",
           name: "シラユキコード",
           horseNumber: 1,
+          sex: null,
+          age: null,
           jockey: "架空 太郎",
+          trainer: null,
           bodyWeightKg: null,
           bodyWeightDiffKg: null,
           odds: null,

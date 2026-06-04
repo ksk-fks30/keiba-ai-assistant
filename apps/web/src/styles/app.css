@@ -1,3 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-app-bg: #f6f7f4;
+  --color-app-surface: #ffffff;
+  --color-app-muted: #eef1ed;
+  --color-app-border: #d8ddd5;
+  --color-app-text: #17211b;
+  --color-app-subtle: #5d6b62;
+  --color-turf: #176b4d;
+  --color-turf-soft: #e6f1eb;
+  --color-odds: #a15c07;
+  --color-odds-soft: #fff3d6;
+  --color-info: #2563eb;
+  --color-info-soft: #dbeafe;
+  --radius-panel: 8px;
+}
+
+body {
+  margin: 0;
+  background: #f6f7f4;
+}
+
 .app-shell {
   max-width: 960px;
   margin: 0 auto;

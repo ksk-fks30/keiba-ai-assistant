@@ -32,7 +32,7 @@ interface PredictCommandOptions {
   policyPath?: string | undefined;
   /** ページ表示後に最低限待機する時間。ミリ秒文字列。 */
   minDelayMs?: string | undefined;
-  /** レースページから遷移して取得する馬詳細ページの最大件数。 */
+  /** レースページから遷移して取得する馬詳細ページの最大件数。未指定なら全頭。 */
   horseDetailLimit?: string | undefined;
   /** Chromium を headless で起動するかどうか。 */
   headless?: boolean | undefined;
@@ -89,7 +89,10 @@ export const registerPredictCommand = (
     .option("--model <model>", "Codex model name")
     .option("--policy-path <path>", "Prediction policy file path")
     .option("--min-delay-ms <ms>", "Minimum delay after page load in milliseconds")
-    .option("--horse-detail-limit <count>", "Maximum horse detail pages to visit")
+    .option(
+      "--horse-detail-limit <count>",
+      "Maximum horse detail pages to visit; omitted means all horses"
+    )
     .option("--headless", "Run browser in headless mode")
     .option("--show-browser", "Run browser with a visible window")
     .action(async (raceUrl: string | undefined, options: PredictCommandOptions) => {
