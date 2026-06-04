@@ -8,6 +8,8 @@ export interface CodexJsonRequest {
   outputSchema: unknown;
   /** この実行だけで使う Codex モデル名。 */
   model?: string | undefined;
+  /** Codex CLI 子プロセスを中断するためのsignal。 */
+  signal?: AbortSignal | undefined;
 }
 
 /** Codex を使って構造化JSONを生成する AI 実行基盤。 */
@@ -38,9 +40,17 @@ export const createCodexSdkRuntime = (options: CodexSdkRuntimeOptions = {}): Cod
     generateJson: async (request) => {
       // 1実行ごとに thread を分け、プロンプト間の文脈混入を避ける。
       const thread = codex.startThread(buildThreadOptions(request, options));
-      const turn = await thread.run(request.prompt, { outputSchema: request.outputSchema });
+      const turn = await thread.run(request.prompt, buildTurnOptions(request));
       return parseCodexJson(turn.finalResponse);
     }
+  };
+};
+
+/** Codex の1 turn実行オプションを組み立てる。 */
+const buildTurnOptions = (request: CodexJsonRequest) => {
+  return {
+    outputSchema: request.outputSchema,
+    ...(request.signal === undefined ? {} : { signal: request.signal })
   };
 };
 

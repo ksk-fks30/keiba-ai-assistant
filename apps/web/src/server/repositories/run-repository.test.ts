@@ -3,9 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import sampleRace from "@fixtures/races/sample-race.json";
-import { parseRace, type Prediction } from "@keiba-ai-assistant/models";
+import { parseRace, type Prediction, type QaEntry } from "@keiba-ai-assistant/models";
 import { createRunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
-import { writePrediction, writeRace } from "@keiba-ai-assistant/storage";
+import {
+  appendQaEntry,
+  readQaEntries,
+  writePrediction,
+  writeRace
+} from "@keiba-ai-assistant/storage";
 
 const tempRootDirs: string[] = [];
 
@@ -73,6 +78,50 @@ describe("createRunRepository", () => {
     // Assert
     expect(actual).toBeNull();
   });
+
+  test("保存済みqa.jsonlをQaEntry配列として取得できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const race = parseRace(sampleRace);
+    const firstEntry = createQaEntry(race.id, "qa-fixture-001", "本命のリスクは？");
+    const secondEntry = createQaEntry(race.id, "qa-fixture-002", "馬場が悪化した場合は？");
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+    await appendQaEntry(firstEntry, { rootDir });
+    await appendQaEntry(secondEntry, { rootDir });
+
+    // Act
+    const actual = await repository.findQaEntriesByRaceId(race.id);
+
+    // Assert
+    expect(actual).toEqual([firstEntry, secondEntry]);
+  });
+
+  test("qa.jsonlが存在しない場合は空配列を返す", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+
+    // Act
+    const actual = await repository.findQaEntriesByRaceId("missing-race");
+
+    // Assert
+    expect(actual).toEqual([]);
+  });
+
+  test("QaEntryをqa.jsonlへ追記できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const race = parseRace(sampleRace);
+    const entry = createQaEntry(race.id, "qa-fixture-001", "相手候補は？");
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+
+    // Act
+    await repository.appendQaEntry(entry);
+    const actual = await readQaEntries(race.id, { rootDir });
+
+    // Assert
+    expect(actual).toEqual([entry]);
+  });
 });
 
 /** repository テスト用の最小限の Prediction fixture を作る。 */
@@ -98,6 +147,17 @@ const createPrediction = (raceId: string): Prediction => {
       }
     ],
     generatedAt: "2026-05-31T05:40:00.000Z"
+  };
+};
+
+/** repository テスト用の最小限の QaEntry fixture を作る。 */
+const createQaEntry = (raceId: string, id: string, question: string): QaEntry => {
+  return {
+    id,
+    raceId,
+    question,
+    answer: `${question}への回答です。`,
+    createdAt: "2026-05-31T06:10:00.000Z"
   };
 };
 

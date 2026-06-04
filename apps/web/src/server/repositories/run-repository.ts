@@ -1,5 +1,11 @@
-import type { Prediction, Race } from "@keiba-ai-assistant/models";
-import { readPrediction, readRace, type RunStoreOptions } from "@keiba-ai-assistant/storage";
+import type { Prediction, QaEntry, Race } from "@keiba-ai-assistant/models";
+import {
+  appendQaEntry as appendStoredQaEntry,
+  readPrediction,
+  readQaEntries,
+  readRace,
+  type RunStoreOptions
+} from "@keiba-ai-assistant/storage";
 import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 
 /** 保存済みrunからWeb表示に必要なdomain modelを取得するrepository。 */
@@ -8,6 +14,10 @@ export interface RunRepository {
   findRaceById: (raceId: string) => Promise<Race | null>;
   /** 指定race IDのPredictionを返す。保存済みprediction.jsonがない場合はnullを返す。 */
   findPredictionByRaceId: (raceId: string) => Promise<Prediction | null>;
+  /** 指定race IDのQ&A履歴を返す。保存済みqa.jsonlがない場合は空配列を返す。 */
+  findQaEntriesByRaceId: (raceId: string) => Promise<QaEntry[]>;
+  /** 指定race IDのQ&A履歴へ1件追記する。 */
+  appendQaEntry: (entry: QaEntry) => Promise<void>;
 }
 
 /** run repository の生成オプション。 */
@@ -42,6 +52,12 @@ export const createRunRepository = (options: CreateRunRepositoryOptions = {}): R
 
         throw error;
       }
+    },
+    findQaEntriesByRaceId: async (raceId) => {
+      return await readQaEntries(raceId, runStoreOptions);
+    },
+    appendQaEntry: async (entry) => {
+      await appendStoredQaEntry(entry, runStoreOptions);
     }
   };
 };
