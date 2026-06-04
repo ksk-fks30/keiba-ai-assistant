@@ -49,6 +49,7 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
     setToast(null);
     try {
       const job = await startPredictJob(trimmedRaceUrl);
+      saveStoredPredictJobId(job.id);
       setActiveJob(job);
     } catch (error) {
       setClientError(readErrorMessage(error));
@@ -56,6 +57,51 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
       setIsStartingJob(false);
     }
   };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    /** リロードや画面遷移から戻った直後に、同じタブで追跡中だったジョブを復元する。 */
+    const restoreJob = async (): Promise<void> => {
+      const jobId = readStoredPredictJobId();
+      if (jobId === null) {
+        return;
+      }
+
+      try {
+        const job = await fetchPredictJob(jobId);
+        if (isCancelled) {
+          return;
+        }
+
+        setActiveJob(job);
+        if (!isPredictJobActive(job)) {
+          clearStoredPredictJobId();
+        }
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        clearStoredPredictJobId();
+        if (!isPredictJobNotFoundError(error)) {
+          setClientError(readErrorMessage(error));
+        }
+      }
+    };
+
+    const pendingRestore = restoreJob();
+    pendingRestore.catch((error: unknown) => {
+      if (!isCancelled) {
+        clearStoredPredictJobId();
+        setClientError(readErrorMessage(error));
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (activeJob === null || !isPredictJobActive(activeJob)) {
@@ -83,6 +129,10 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
       const pendingPoll = pollJob();
       pendingPoll.catch((error: unknown) => {
         if (!isCancelled) {
+          if (isPredictJobNotFoundError(error)) {
+            clearStoredPredictJobId();
+            setActiveJob(null);
+          }
           setClientError(readErrorMessage(error));
         }
       });
@@ -106,6 +156,7 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
     }
 
     notifiedJobIdsRef.current.add(activeJob.id);
+    clearStoredPredictJobId();
     setToast(buildPredictToast(activeJob));
     if (activeJob.status === "succeeded") {
       router.reload({ only: ["runs"] });
@@ -140,7 +191,7 @@ const startPredictJob = async (raceUrl: string): Promise<PredictRaceJobSnapshot>
   });
   const value = (await response.json()) as unknown;
   if (!response.ok) {
-    throw new Error(readErrorResponse(value));
+    throw createPredictJobRequestError(readErrorResponse(value), response.status);
   }
 
   return parsePredictJobSnapshot(value);
@@ -153,7 +204,7 @@ const fetchPredictJob = async (jobId: string): Promise<PredictRaceJobSnapshot> =
   });
   const value = (await response.json()) as unknown;
   if (!response.ok) {
-    throw new Error(readErrorResponse(value));
+    throw createPredictJobRequestError(readErrorResponse(value), response.status);
   }
 
   return parsePredictJobSnapshot(value);
@@ -200,6 +251,66 @@ const isPredictJobActive = (job: PredictRaceJobSnapshot): boolean => {
 /** unknownがPredictRaceJobStatusかどうかを判定する。 */
 const isPredictJobStatus = (value: unknown): value is PredictRaceJobSnapshot["status"] => {
   return value === "queued" || value === "running" || value === "succeeded" || value === "failed";
+};
+
+/** 同じタブで追跡中のレース解析ジョブIDを保存するsessionStorageキー。 */
+const activePredictJobIdStorageKey = "keiba-ai-assistant.activePredictJobId";
+
+/** sessionStorageから同じタブで追跡していたレース解析ジョブIDを読む。 */
+const readStoredPredictJobId = (): string | null => {
+  try {
+    const jobId = window.sessionStorage.getItem(activePredictJobIdStorageKey);
+    if (jobId === null || jobId.length === 0) {
+      return null;
+    }
+
+    return jobId;
+  } catch {
+    // sessionStorageが使えない環境でも、解析ジョブ自体はサーバー側で進められる。
+    return null;
+  }
+};
+
+/** 同じタブのリロード後に復元できるよう、追跡中のレース解析ジョブIDを保存する。 */
+const saveStoredPredictJobId = (jobId: string): void => {
+  try {
+    window.sessionStorage.setItem(activePredictJobIdStorageKey, jobId);
+  } catch {
+    // sessionStorage保存に失敗しても、進捗復元だけを諦めればよい。
+  }
+};
+
+/** 完了・失敗・404になったレース解析ジョブIDをsessionStorageから消す。 */
+const clearStoredPredictJobId = (): void => {
+  try {
+    window.sessionStorage.removeItem(activePredictJobIdStorageKey);
+  } catch {
+    // sessionStorage削除に失敗しても、次回復元時にジョブAPIの結果で再判定する。
+  }
+};
+
+/** ジョブAPIのHTTP statusを保持する内部Error。 */
+interface PredictJobRequestError extends Error {
+  /** HTTP status code。 */
+  status: number;
+}
+
+/** ジョブAPIのHTTPエラーをstatus付きErrorとして作る。 */
+const createPredictJobRequestError = (message: string, status: number): PredictJobRequestError => {
+  const error = new Error(message) as PredictJobRequestError;
+  error.status = status;
+
+  return error;
+};
+
+/** unknownがジョブAPIのHTTPエラーかどうかを判定する。 */
+const isPredictJobRequestError = (error: unknown): error is PredictJobRequestError => {
+  return error instanceof Error && "status" in error && typeof error.status === "number";
+};
+
+/** ジョブAPIが404を返したかどうかを判定する。 */
+const isPredictJobNotFoundError = (error: unknown): boolean => {
+  return isPredictJobRequestError(error) && error.status === 404;
 };
 
 /** 完了または失敗したジョブからtoast表示を作る。 */
