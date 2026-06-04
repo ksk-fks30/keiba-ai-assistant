@@ -10,8 +10,14 @@ export const raceDraftHorseSchema = z.object({
   name: z.string().min(1),
   // 馬番。
   horseNumber: z.number().int().positive(),
+  // 性別表記。不明な場合は null を入れる。
+  sex: z.string().nullable(),
+  // 馬齢。不明な場合は null を入れる。
+  age: z.number().int().positive().nullable(),
   // 今回騎乗する騎手。
   jockey: z.string().min(1),
+  // 管理調教師。不明な場合は null を入れる。
+  trainer: z.string().nullable(),
   // 馬体重。kg単位。不明な場合は null を入れる。
   bodyWeightKg: z.number().int().positive().nullable(),
   // 前回発表値からの馬体重増減。kg単位。不明な場合は null を入れる。

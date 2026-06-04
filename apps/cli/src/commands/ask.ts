@@ -49,6 +49,18 @@ export interface AskCommandDependencies {
   log?: ((message: string) => void) | undefined;
 }
 
+const displayTimeZone = "Asia/Tokyo";
+
+const dateTimeFormatter = new Intl.DateTimeFormat("ja-JP", {
+  timeZone: displayTimeZone,
+  year: "2-digit",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23"
+});
+
 /** 保存済みレース分析に対する追加質問を実行し、回答を qa.jsonl に追記する CLI コマンドを登録する。 */
 export const registerAskCommand = (
   program: Command,
@@ -245,7 +257,45 @@ const formatQaHistory = (raceId: string, entries: QaEntry[]): string => {
   return [
     `Q&A履歴: ${raceId}`,
     ...entries.map((entry, index) =>
-      [`[${index + 1}] ${entry.createdAt}`, `Q: ${entry.question}`, `A: ${entry.answer}`].join("\n")
+      [
+        `[${index + 1}] ${formatDateTime(entry.createdAt)}`,
+        `Q: ${entry.question}`,
+        `A: ${entry.answer}`
+      ].join("\n")
     )
   ].join("\n\n");
+};
+
+/** 日時文字列を YY/mm/dd HH:mm の表示へ変換する。 */
+const formatDateTime = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const parts = readDatePartValues(dateTimeFormatter, date);
+  const { year, month, day, hour, minute } = parts;
+  if (
+    year === undefined ||
+    month === undefined ||
+    day === undefined ||
+    hour === undefined ||
+    minute === undefined
+  ) {
+    return value;
+  }
+
+  return `${year}/${month}/${day} ${hour}:${minute}`;
+};
+
+/** Intl.DateTimeFormat の parts を固定キーで参照できる形に変換する。 */
+const readDatePartValues = (formatter: Intl.DateTimeFormat, date: Date): Record<string, string> => {
+  const values: Record<string, string> = {};
+  for (const part of formatter.formatToParts(date)) {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  }
+
+  return values;
 };
