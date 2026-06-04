@@ -1,10 +1,11 @@
 import { AppLayout } from "@keiba-ai-assistant/web/components/layout/AppLayout";
 import { HorseList } from "@keiba-ai-assistant/web/components/race/HorseList";
+import { PredictionSummary } from "@keiba-ai-assistant/web/components/race/PredictionSummary";
 import { RaceSummary } from "@keiba-ai-assistant/web/components/race/RaceSummary";
 import { useRaceDashboardView } from "@keiba-ai-assistant/web/components/race/use-race-dashboard-view";
 import type { RaceShowPageProps } from "@keiba-ai-assistant/web/server/usecases/show-race";
 
-const RaceShow = ({ raceId, race }: RaceShowPageProps) => {
+const RaceShow = ({ raceId, race, prediction }: RaceShowPageProps) => {
   const raceView = useRaceDashboardView(race);
 
   if (raceView === null) {
@@ -27,9 +28,12 @@ const RaceShow = ({ raceId, race }: RaceShowPageProps) => {
 
   return (
     <AppLayout>
-      <main className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <RaceSummary race={raceView} />
-        <HorseList horses={raceView.horses} />
+      <main className="grid min-h-screen gap-4 px-3 py-4 sm:px-4 xl:grid-cols-[minmax(0,1fr)_390px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <RaceSummary race={raceView} />
+          <HorseList horses={raceView.horses} />
+        </div>
+        <PredictionSummary prediction={prediction} horses={raceView.horses} />
       </main>
     </AppLayout>
   );

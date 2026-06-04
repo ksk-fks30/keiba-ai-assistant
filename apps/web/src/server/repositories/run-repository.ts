@@ -1,11 +1,13 @@
-import type { Race } from "@keiba-ai-assistant/models";
-import { readRace, type RunStoreOptions } from "@keiba-ai-assistant/storage";
+import type { Prediction, Race } from "@keiba-ai-assistant/models";
+import { readPrediction, readRace, type RunStoreOptions } from "@keiba-ai-assistant/storage";
 import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 
 /** 保存済みrunからWeb表示に必要なdomain modelを取得するrepository。 */
 export interface RunRepository {
   /** 指定race IDのRaceを返す。保存済みrace.jsonがない場合はnullを返す。 */
   findRaceById: (raceId: string) => Promise<Race | null>;
+  /** 指定race IDのPredictionを返す。保存済みprediction.jsonがない場合はnullを返す。 */
+  findPredictionByRaceId: (raceId: string) => Promise<Prediction | null>;
 }
 
 /** run repository の生成オプション。 */
@@ -22,6 +24,17 @@ export const createRunRepository = (options: CreateRunRepositoryOptions = {}): R
     findRaceById: async (raceId) => {
       try {
         return await readRace(raceId, runStoreOptions);
+      } catch (error) {
+        if (isMissingFileError(error)) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    findPredictionByRaceId: async (raceId) => {
+      try {
+        return await readPrediction(raceId, runStoreOptions);
       } catch (error) {
         if (isMissingFileError(error)) {
           return null;
