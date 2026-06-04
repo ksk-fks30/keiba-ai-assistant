@@ -101,6 +101,41 @@ describe("createHomeRoutes", () => {
     expect(actualRaceUrl).toBe(raceUrl);
   });
 
+  test("実行中ジョブがある場合は409で既存ジョブを返す", async () => {
+    // Arrange
+    const activeJob = createPredictRaceJobSnapshot();
+    const app = createTestApp({
+      showHomeUseCase: async () => {
+        throw new Error("POSTではトップpropsを読まない");
+      },
+      predictRaceJobStore: {
+        start: () => {
+          throw createAlreadyRunningError(activeJob);
+        },
+        findById: () => {
+          throw new Error("POSTではジョブ状態を読まない");
+        }
+      }
+    });
+
+    // Act
+    const response = await app.request("/races/predict-jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        raceUrl: "https://race.netkeiba.com/race/shutuba.html?race_id=202605030211"
+      })
+    });
+    const actual = (await response.json()) as unknown;
+
+    // Assert
+    expect(response.status).toBe(409);
+    expect(actual).toEqual({
+      error: "別のレース解析ジョブが実行中です。",
+      job: activeJob
+    });
+  });
+
   test("ジョブIDからレース解析ジョブ状態を取得できる", async () => {
     // Arrange
     const job = createPredictRaceJobSnapshot();
@@ -158,6 +193,16 @@ const createPredictRaceJobSnapshot = (): PredictRaceJobSnapshot => {
     createdAt: "2026-06-04T12:00:00.000Z",
     updatedAt: "2026-06-04T12:00:00.000Z"
   };
+};
+
+/** routeテスト用の実行中ジョブErrorを作る。 */
+const createAlreadyRunningError = (activeJob: PredictRaceJobSnapshot): Error => {
+  const error = new Error("別のレース解析ジョブが実行中です。") as Error & {
+    activeJob: PredictRaceJobSnapshot;
+  };
+  error.activeJob = activeJob;
+
+  return error;
 };
 
 /** HonoのrenderをJSONへ差し替えたrouteテスト用アプリを作る。 */

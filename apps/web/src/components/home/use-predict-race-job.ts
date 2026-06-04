@@ -74,6 +74,7 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
           return;
         }
 
+        setClientError(null);
         setActiveJob(job);
         if (!isPredictJobActive(job)) {
           clearStoredPredictJobId();
@@ -118,6 +119,7 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
         return;
       }
 
+      setClientError(null);
       setActiveJob(nextJob);
       if (isPredictJobActive(nextJob)) {
         timeoutId = window.setTimeout(runPollJob, 2000);
@@ -132,8 +134,11 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
           if (isPredictJobNotFoundError(error)) {
             clearStoredPredictJobId();
             setActiveJob(null);
+            setClientError(readErrorMessage(error));
+            return;
           }
           setClientError(readErrorMessage(error));
+          timeoutId = window.setTimeout(runPollJob, 5000);
         }
       });
     };
