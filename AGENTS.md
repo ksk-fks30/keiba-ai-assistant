@@ -29,156 +29,24 @@
 - `packages/models` は他のworkspace packageに依存してはならない。
 - `packages/*` は `apps/web` や `apps/cli` に依存してはならない。
 
-想定するディレクトリ構成:
+主なディレクトリ構成:
 
 ```text
 keiba-ai-assistant/
-  README.md
-  AGENTS.md
-  package.json
-  pnpm-workspace.yaml
-  tsconfig.base.json
-  .gitignore
-  .env.example
-  vitest.config.ts
-
-  apps/
-    web/
-      package.json
-      vite.config.ts
-      tsconfig.json
-      src/
-        server/
-          app.ts
-          root.tsx
-          repositories/
-          routes/
-            home.ts
-            races.ts
-            collect.ts
-            analyze.ts
-            ask.ts
-          usecases/
-        pages/
-          Home.tsx
-          races/
-            Index.tsx
-            Show.tsx
-        components/
-          layout/
-            AppLayout.tsx
-          race/
-            RaceSummary.tsx
-            PredictionSummary.tsx
-            HorseList.tsx
-            HorseEvaluation.tsx
-            QuestionPanel.tsx
-            QuestionHistory.tsx
-        styles/
-          app.css
-
-    cli/
-      package.json
-      tsconfig.json
-      src/
-        index.ts
-        commands/
-          serve.ts
-          collect.ts
-          import-race.ts
-          policy.ts
-          analyze.ts
-          ask.ts
-
-  packages/
-    models/
-      package.json
-      tsconfig.json
-      src/
-        bet-candidate.ts
-        race.ts
-        race-surface.ts
-        weather.ts
-        horse.ts
-        race-draft-horse.ts
-        race-draft.ts
-        past-performance.ts
-        pedigree.ts
-        horse-evaluation.ts
-        prediction.ts
-        prediction-draft.ts
-        qa.ts
-        policy.ts
-        source-page-link.ts
-        source-page-snapshot.ts
-        index.ts
-
-    scraper/
-      package.json
-      tsconfig.json
-      src/
-        netkeiba/
-          access-control.ts
-          collector.ts
-          browser.ts
-          selectors.ts
-          rate-limit.ts
-          snapshot.ts
-        weather/
-          provider.ts
-        index.ts
-
-    ai/
-      package.json
-      tsconfig.json
-      src/
-        codex.ts
-        extract-race.ts
-        prompts.ts
-        analyze-race.ts
-        ask-race.ts
-        index.ts
-
-    storage/
-      package.json
-      tsconfig.json
-      src/
-        run-store.ts
-        cache-store.ts
-        policy-store.ts
-        qa-store.ts
-        file-system.ts
-        workspace-root.ts
-        index.ts
-
-  policies/
-    main.md
-
-  runs/
-    .gitkeep
-
-  data/
-    .gitkeep
-
-  fixtures/
-    races/
-      sample-race.json
-
-  .agents/
-    skills/
-      keiba-web-coding/
-        SKILL.md
-        agents/
-          openai.yaml
-      keiba-artifact-reviewer/
-        SKILL.md
-        agents/
-          openai.yaml
-      unit-test-writer/
-        SKILL.md
-        agents/
-          openai.yaml
+  apps/web/       ローカルWebアプリ
+  apps/cli/       ローカルCLI
+  packages/models/   共有domain modelとZodスキーマ
+  packages/scraper/  netkeiba、天気情報、軽量snapshot取得
+  packages/ai/       Codex SDK連携、構造化、分析、追加質問
+  packages/storage/  runs、data、policiesのローカルI/O
+  policies/      予想方針テンプレートとローカル予想方針
+  runs/          レース単位の実行結果
+  data/          取得キャッシュとブラウザ関連データ
+  fixtures/      架空データのテストfixture
+  .agents/       Codex用ローカルskill
 ```
+
+ファイル単位の構成は AGENTS.md に固定せず、実装時に `rg --files` などで現在のリポジトリを確認する。
 
 ## Webアプリ構成
 
@@ -206,7 +74,8 @@ keiba-ai-assistant/
 - `apps/cli` はローカル操作用の入口として実装する。
 - Webサーバー起動、レース取得、分析、追加質問の実行をCLIから呼べるようにする。
 - CLIはWeb固有のUI実装に依存せず、必要な `packages/*` の処理を呼び出す。
-- ルートの `pnpm keiba` script は `apps/cli` の短縮入口である。
+- ルートの `pnpm keiba:cli` script は `apps/cli` の短縮入口である。
+- ルートの `pnpm keiba:web` script は `apps/web` の開発サーバー起動入口である。
 - `predict` は `collect` と `analyze` を連続実行し、`race.json` と `prediction.json` を保存する。
 - CLIは主要入力を位置引数で受け取り、既存の `--race-url`、`--race-id`、`--race-json` は互換用オプションとして残す。
 - 長時間動くCLI処理は、外部I/O、AI実行、保存処理の進捗を標準出力に出す。
@@ -215,14 +84,14 @@ keiba-ai-assistant/
 想定コマンド:
 
 ```text
-pnpm keiba serve
-pnpm keiba collect <url>
-pnpm keiba predict <url> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
-pnpm keiba import-race <path> [--runs-dir <path>]
-pnpm keiba policy
-pnpm keiba analyze <race-id> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
-pnpm keiba ask <race-id> <question> [--model <model>] [--policy-path <path>] [--runs-dir <path>]
-pnpm keiba qa-history <race-id> [--runs-dir <path>]
+pnpm keiba:web
+pnpm keiba:cli collect <url>
+pnpm keiba:cli predict <url> [--model <model>] [--policy-dir <path>] [--runs-dir <path>]
+pnpm keiba:cli import-race <path> [--runs-dir <path>]
+pnpm keiba:cli policy
+pnpm keiba:cli analyze <race-id> [--model <model>] [--policy-dir <path>] [--runs-dir <path>]
+pnpm keiba:cli ask <race-id> <question> [--model <model>] [--policy-dir <path>] [--runs-dir <path>]
+pnpm keiba:cli qa-history <race-id> [--runs-dir <path>]
 ```
 
 ## コード品質設定
@@ -287,7 +156,7 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 
 - `runs/` の読み書き
 - `data/` の読み書き
-- `policies/main.md` の読込
+- `policies/` 直下の `.md` 予想方針ファイルの読込
 - `race.json` の保存と読込
 - `prediction.json` の保存と読込
 - `qa.jsonl` の追記と読込
@@ -332,10 +201,11 @@ Playwright の Chromium ブラウザ本体は初回実行前に `pnpm --filter @
 - 追加質問では、AIには `QaAnswerDraft` として回答本文だけを生成させ、`QaEntry` の `id`、`raceId`、`question`、`createdAt` はアプリ側で付与する。
 - 分析用 Codex SDK thread はファイル変更を行わない前提で `read-only` sandbox、`approvalPolicy: "never"`、`webSearchMode: "disabled"` を使用する。
 - Webページを直接AIに読ませて予想させず、ブラウザ操作で作った軽量snapshotを `RaceDraft` に構造化し、`Race` として検証してから分析する。
-- 予想方針は `policies/main.md` に記述する。
+- 予想方針は `policies/` 直下の任意の `.md` ファイルに記述する。
+- 予想方針ファイルはファイル名のアルファベット順で全件読み込み、本文を結合してCodex SDKへ渡す。
 - 分析時には、構造化レースデータ、予想方針、必要に応じて過去のQ&A履歴をCodex SDKに渡す。
 - Codex SDKの出力は `prediction.json` や `qa.jsonl` として保存できる形にする。
-- 追加質問では、対象レースの `race.json`、`prediction.json`、`qa.jsonl`、`policies/main.md` を参照する。
+- 追加質問では、対象レースの `race.json`、`prediction.json`、`qa.jsonl`、`policies/` 直下の `.md` 予想方針ファイルを参照する。
 
 ## データ取得仕様
 
@@ -423,6 +293,8 @@ runs/*
 !runs/.gitkeep
 data/*
 !data/.gitkeep
+policies/*.md
+!policies/*.md.example
 ```
 
 ## 公開・保存してはいけないもの

@@ -1,5 +1,9 @@
 export { readCache, writeCache } from "@keiba-ai-assistant/storage/cache-store";
-export { getPolicyPath, readPredictionPolicy } from "@keiba-ai-assistant/storage/policy-store";
+export {
+  getPolicyDirectory,
+  getPolicyPath,
+  readPredictionPolicy
+} from "@keiba-ai-assistant/storage/policy-store";
 export { appendQaEntry, readQaEntries } from "@keiba-ai-assistant/storage/qa-store";
 export {
   createRun,

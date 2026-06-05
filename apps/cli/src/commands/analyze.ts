@@ -15,7 +15,9 @@ interface AnalyzeCommandOptions {
   raceId?: string | undefined;
   /** Codex SDK に渡すモデル名。 */
   model?: string | undefined;
-  /** 予想方針ファイルのパス。 */
+  /** 予想方針ディレクトリのパス。 */
+  policyDir?: string | undefined;
+  /** 互換用の予想方針ファイルのパス。 */
   policyPath?: string | undefined;
   /** runs ディレクトリのルートパス。 */
   runsDir?: string | undefined;
@@ -55,7 +57,8 @@ export const registerAnalyzeCommand = (
     .argument("[raceId]", "Race ID")
     .option("--race-id <raceId>", "Race ID")
     .option("--model <model>", "Codex model")
-    .option("--policy-path <path>", "Prediction policy file path")
+    .option("--policy-dir <path>", "Prediction policy directory path")
+    .option("--policy-path <path>", "Prediction policy file path (compatibility)")
     .option("--runs-dir <path>", "Runs root directory")
     .action(async (raceId: string | undefined, options: AnalyzeCommandOptions) => {
       // 分析は保存済み run と予想方針を入力にし、Codex にはファイル取得を任せない。
@@ -97,13 +100,19 @@ const buildRunStoreOptions = (options: AnalyzeCommandOptions): RunStoreOptions =
   return { rootDir: options.runsDir };
 };
 
-/** CLI オプションから予想方針ファイルの読み込み設定を組み立てる。 */
+/** CLI オプションから予想方針の読み込み設定を組み立てる。 */
 const buildPolicyStoreOptions = (options: AnalyzeCommandOptions): PolicyStoreOptions => {
-  if (options.policyPath === undefined) {
-    return {};
+  if (options.policyDir !== undefined && options.policyPath !== undefined) {
+    throw new Error("--policy-dir と --policy-path は同時に指定できません。");
+  }
+  if (options.policyDir !== undefined) {
+    return { policyDir: options.policyDir };
+  }
+  if (options.policyPath !== undefined) {
+    return { policyPath: options.policyPath };
   }
 
-  return { policyPath: options.policyPath };
+  return {};
 };
 
 /** CLI オプションを AI 分析パッケージの入力形式へ変換する。 */

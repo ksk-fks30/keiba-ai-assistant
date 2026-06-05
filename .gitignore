@@ -11,3 +11,5 @@ runs/*
 !runs/.gitkeep
 data/*
 !data/.gitkeep
+policies/*.md
+!policies/*.md.example

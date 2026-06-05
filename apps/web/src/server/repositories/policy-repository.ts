@@ -9,11 +9,11 @@ export interface PolicyRepository {
 
 /** policy repository の生成オプション。 */
 export interface CreatePolicyRepositoryOptions {
-  /** `packages/storage` に渡す予想方針ファイル読込設定。 */
+  /** `packages/storage` に渡す予想方針読込設定。 */
   policyStoreOptions?: PolicyStoreOptions;
 }
 
-/** `policies/main.md` などの予想方針ファイルをstorage経由で読み込むrepositoryを作る。 */
+/** `policies/` 配下の予想方針ファイルをstorage経由で読み込むrepositoryを作る。 */
 export const createPolicyRepository = (
   options: CreatePolicyRepositoryOptions = {}
 ): PolicyRepository => {

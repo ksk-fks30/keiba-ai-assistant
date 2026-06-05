@@ -48,9 +48,11 @@
 
 ## 予想方針
 
-ユーザーの予想方針は `policies/main.md` に記述します。
+ユーザーの予想方針は `policies/` 直下の `.md` ファイルに記述します。
 
-予想方針には、重視する観点、軽視する観点、距離適性や馬場適性の見方、血統の扱い、人気馬や穴馬の評価方針、買い目の考え方などを記述します。
+ファイル名は任意で、読み込み順はファイル名のアルファベット順です。複数ファイルに分けて、重視する観点、軽視する観点、距離適性や馬場適性の見方、血統の扱い、人気馬や穴馬の評価方針、買い目の考え方などを記述できます。
+
+実際に使う `.md` ファイルはGit管理しません。書き方の例は `policies/policy.md.example` を参考にしてください。
 
 ## レースデータ
 
@@ -119,7 +121,7 @@ pnpm keiba:cli qa-history <race-id>
 
 ```sh
 pnpm keiba:cli collect "<race-url>" --horse-detail-limit 3 --min-delay-ms 2000
-pnpm keiba:cli predict "<race-url>" --model <model> --policy-path policies/main.md
+pnpm keiba:cli predict "<race-url>" --model <model> --policy-dir policies
 pnpm keiba:cli analyze <race-id> --runs-dir runs
 pnpm keiba:cli ask <race-id> "<question>" --model <model>
 ```
@@ -127,3 +129,5 @@ pnpm keiba:cli ask <race-id> "<question>" --model <model>
 レースURL、レースID、レースJSONのパスは、基本的にコマンド直後の引数として指定します。既存の実行方法との互換性のため、`collect` / `predict` では `--race-url <url>`、`analyze` / `ask` / `qa-history` では `--race-id <race-id>`、`import-race` では `--race-json <path>` でも同じ値を指定できます。
 
 `--model <model>` は、Codex SDKに渡すモデル名です。省略した場合は、Codex CLI / SDK 側の既定モデルを使用します。
+
+`--policy-dir <path>` は、予想方針 `.md` ファイルを読み込むディレクトリです。省略した場合は `policies/` を使用します。

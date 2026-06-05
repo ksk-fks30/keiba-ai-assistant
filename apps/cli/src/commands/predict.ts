@@ -28,7 +28,9 @@ interface PredictCommandOptions {
   runsDir?: string | undefined;
   /** Codex SDK に渡すモデル名。レース構造化と予想分析の両方で使う。 */
   model?: string | undefined;
-  /** 予想方針ファイルのパス。 */
+  /** 予想方針ディレクトリのパス。 */
+  policyDir?: string | undefined;
+  /** 互換用の予想方針ファイルのパス。 */
   policyPath?: string | undefined;
   /** ページ表示後に最低限待機する時間。ミリ秒文字列。 */
   minDelayMs?: string | undefined;
@@ -87,7 +89,8 @@ export const registerPredictCommand = (
     .option("--race-url <url>", "netKeiba race URL")
     .option("--runs-dir <path>", "Runs root directory")
     .option("--model <model>", "Codex model name")
-    .option("--policy-path <path>", "Prediction policy file path")
+    .option("--policy-dir <path>", "Prediction policy directory path")
+    .option("--policy-path <path>", "Prediction policy file path (compatibility)")
     .option("--min-delay-ms <ms>", "Minimum delay after page load in milliseconds")
     .option(
       "--horse-detail-limit <count>",
@@ -264,13 +267,19 @@ const buildCodexModelOption = (options: PredictCommandOptions) => {
   return { model: options.model };
 };
 
-/** CLI オプションから予想方針ファイルの読み込み設定を組み立てる。 */
+/** CLI オプションから予想方針の読み込み設定を組み立てる。 */
 const buildPolicyStoreOptions = (options: PredictCommandOptions): PolicyStoreOptions => {
-  if (options.policyPath === undefined) {
-    return {};
+  if (options.policyDir !== undefined && options.policyPath !== undefined) {
+    throw new Error("--policy-dir と --policy-path は同時に指定できません。");
+  }
+  if (options.policyDir !== undefined) {
+    return { policyDir: options.policyDir };
+  }
+  if (options.policyPath !== undefined) {
+    return { policyPath: options.policyPath };
   }
 
-  return { policyPath: options.policyPath };
+  return {};
 };
 
 /** CLI オプションから run store の読み書き設定を組み立てる。 */
