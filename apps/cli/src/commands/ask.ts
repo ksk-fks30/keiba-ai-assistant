@@ -160,17 +160,21 @@ const resolveAskCommandInput = (
   if (options.raceId !== undefined) {
     const question = [raceIdOrQuestion, ...questionParts].filter(isNonEmptyText).join(" ");
     if (question.length === 0) {
-      throw new Error("質問を指定してください。例: pnpm keiba ask --race-id <race-id> <question>");
+      throw new Error(
+        "質問を指定してください。例: pnpm keiba:cli ask --race-id <race-id> <question>"
+      );
     }
 
     return { raceId: options.raceId, question };
   }
 
   if (raceIdOrQuestion === undefined) {
-    throw new Error("race ID と質問を指定してください。例: pnpm keiba ask <race-id> <question>");
+    throw new Error(
+      "race ID と質問を指定してください。例: pnpm keiba:cli ask <race-id> <question>"
+    );
   }
   if (questionParts.length === 0) {
-    throw new Error("質問を指定してください。例: pnpm keiba ask <race-id> <question>");
+    throw new Error("質問を指定してください。例: pnpm keiba:cli ask <race-id> <question>");
   }
 
   return {
@@ -191,7 +195,7 @@ const resolveRaceId = (raceId: string | undefined, options: QaHistoryCommandOpti
     return options.raceId;
   }
 
-  throw new Error("race ID を指定してください。例: pnpm keiba qa-history <race-id>");
+  throw new Error("race ID を指定してください。例: pnpm keiba:cli qa-history <race-id>");
 };
 
 /** 空ではない文字列かどうかを判定する。 */

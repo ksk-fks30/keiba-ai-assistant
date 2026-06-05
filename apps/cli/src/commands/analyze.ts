@@ -85,7 +85,7 @@ const resolveRaceId = (raceId: string | undefined, options: AnalyzeCommandOption
     return options.raceId;
   }
 
-  throw new Error("race ID を指定してください。例: pnpm keiba analyze <race-id>");
+  throw new Error("race ID を指定してください。例: pnpm keiba:cli analyze <race-id>");
 };
 
 /** CLI オプションから run store の読み書き設定を組み立てる。 */

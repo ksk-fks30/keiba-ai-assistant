@@ -66,7 +66,7 @@ const resolveRaceJson = (
     return options.raceJson;
   }
 
-  throw new Error("race JSON を指定してください。例: pnpm keiba import-race <race-json>");
+  throw new Error("race JSON を指定してください。例: pnpm keiba:cli import-race <race-json>");
 };
 
 /** CLI オプションから run store の読み書き設定を組み立てる。 */

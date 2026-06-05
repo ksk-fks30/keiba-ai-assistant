@@ -197,7 +197,7 @@ const resolveRaceUrl = (raceUrl: string | undefined, options: CollectCommandOpti
     return options.raceUrl;
   }
 
-  throw new Error("race URL を指定してください。例: pnpm keiba collect <race-url>");
+  throw new Error("race URL を指定してください。例: pnpm keiba:cli collect <race-url>");
 };
 
 /** CLI collect のブラウザ表示設定を決める。 */

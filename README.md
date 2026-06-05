@@ -90,7 +90,7 @@ Webは、レース取得から分析結果の確認、追加質問までをブ�
 ローカルWebアプリは次のコマンドで起動します。
 
 ```sh
-pnpm dev:web
+pnpm keiba:web
 ```
 
 起動後、ターミナルに表示されるローカルURLをブラウザで開きます。
@@ -99,16 +99,16 @@ pnpm dev:web
 
 Webがブラウザ上での閲覧と基本操作を想定しているのに対し、CLIは取得件数、待機時間、利用モデル、保存先、予想方針ファイルなどを指定して、取得・分析条件を細かく調整しながら実行するための入口です。
 
-ローカルCLIはリポジトリルートから `pnpm keiba` で実行します。
+CLIは `pnpm keiba:cli <command>` の形式で実行します。
 
 ```sh
-pnpm keiba collect "<race-url>"
-pnpm keiba predict "<race-url>"
-pnpm keiba import-race <path>
-pnpm keiba policy
-pnpm keiba analyze <race-id>
-pnpm keiba ask <race-id> "<question>"
-pnpm keiba qa-history <race-id>
+pnpm keiba:cli collect "<race-url>"
+pnpm keiba:cli predict "<race-url>"
+pnpm keiba:cli import-race <path>
+pnpm keiba:cli policy
+pnpm keiba:cli analyze <race-id>
+pnpm keiba:cli ask <race-id> "<question>"
+pnpm keiba:cli qa-history <race-id>
 ```
 
 `predict` はレース取得、`race.json` 保存、AI分析、`prediction.json` 保存をまとめて実行します。
@@ -118,10 +118,10 @@ pnpm keiba qa-history <race-id>
 ### 主なオプション
 
 ```sh
-pnpm keiba collect "<race-url>" --horse-detail-limit 3 --min-delay-ms 2000
-pnpm keiba predict "<race-url>" --model <model> --policy-path policies/main.md
-pnpm keiba analyze <race-id> --runs-dir runs
-pnpm keiba ask <race-id> "<question>" --model <model>
+pnpm keiba:cli collect "<race-url>" --horse-detail-limit 3 --min-delay-ms 2000
+pnpm keiba:cli predict "<race-url>" --model <model> --policy-path policies/main.md
+pnpm keiba:cli analyze <race-id> --runs-dir runs
+pnpm keiba:cli ask <race-id> "<question>" --model <model>
 ```
 
 レースURL、レースID、レースJSONのパスは、基本的にコマンド直後の引数として指定します。既存の実行方法との互換性のため、`collect` / `predict` では `--race-url <url>`、`analyze` / `ask` / `qa-history` では `--race-id <race-id>`、`import-race` では `--race-json <path>` でも同じ値を指定できます。

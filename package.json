@@ -4,9 +4,8 @@
   "type": "module",
   "packageManager": "pnpm@11.5.0",
   "scripts": {
-    "keiba": "pnpm --filter @keiba-ai-assistant/cli dev",
-    "dev:cli": "pnpm --filter @keiba-ai-assistant/cli dev",
-    "dev:web": "pnpm --filter @keiba-ai-assistant/web dev",
+    "keiba:cli": "pnpm --filter @keiba-ai-assistant/cli dev",
+    "keiba:web": "pnpm --filter @keiba-ai-assistant/web dev",
     "format": "oxfmt . --write",
     "format:check": "oxfmt . --check",
     "lint": "pnpm oxlint && pnpm format:check",

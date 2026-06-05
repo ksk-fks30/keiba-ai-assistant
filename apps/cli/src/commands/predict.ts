@@ -240,7 +240,7 @@ const resolveRaceUrl = (raceUrl: string | undefined, options: PredictCommandOpti
     return options.raceUrl;
   }
 
-  throw new Error("race URL を指定してください。例: pnpm keiba predict <race-url>");
+  throw new Error("race URL を指定してください。例: pnpm keiba:cli predict <race-url>");
 };
 
 /** CLI predict のブラウザ表示設定を決める。 */
