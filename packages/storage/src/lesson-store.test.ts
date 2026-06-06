@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import type { LessonEntry, PredictionLessonReference } from "@keiba-ai-assistant/models";
 import {
+  findLessonEntriesByIds,
+  findLessonEntryById,
   initializeLessonDatabase,
   listLessonEntries,
   listPredictionLessonReferences,
@@ -98,6 +100,21 @@ describe("searchLessonEntries", () => {
     // Assert
     expect(actual.map((result) => result.lesson.id)).toEqual(["lesson-to-approve"]);
     expect(listed.map((entry) => entry.id)).toEqual(["lesson-to-approve"]);
+  });
+
+  test("Lesson ID指定で入力順のまま取得できる", async () => {
+    // Arrange
+    const options = await createTempLessonStoreOptions();
+    await saveLessonEntry(createLessonEntry({ id: "lesson-a", title: "A" }), options);
+    await saveLessonEntry(createLessonEntry({ id: "lesson-b", title: "B" }), options);
+
+    // Act
+    const actual = await findLessonEntriesByIds(["lesson-b", "missing", "lesson-a"], options);
+    const single = await findLessonEntryById("lesson-a", options);
+
+    // Assert
+    expect(actual.map((lesson) => lesson.id)).toEqual(["lesson-b", "lesson-a"]);
+    expect(single?.id).toBe("lesson-a");
   });
 });
 

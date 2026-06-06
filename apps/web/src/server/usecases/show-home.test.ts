@@ -53,6 +53,8 @@ const createSavedRaceRun = (input: {
     race: input.race ?? null,
     hasPrediction: input.race !== undefined,
     hasQa: false,
+    hasResult: false,
+    hasReflection: false,
     updatedAt: input.updatedAt
   };
 };
@@ -79,11 +81,23 @@ const createUnusedRunRepositoryMethods = () => {
     findQaEntriesByRaceId: async () => {
       throw new Error("トップ画面表示ではQ&A履歴を読まない");
     },
+    findRaceResultByRaceId: async () => {
+      throw new Error("トップ画面表示ではレース結果を読まない");
+    },
+    findRaceReflectionByRaceId: async () => {
+      throw new Error("トップ画面表示では振り返りを読まない");
+    },
     saveRace: async () => {
       throw new Error("トップ画面表示ではRaceを保存しない");
     },
     savePrediction: async () => {
       throw new Error("トップ画面表示ではPredictionを保存しない");
+    },
+    saveRaceResult: async () => {
+      throw new Error("トップ画面表示ではレース結果を保存しない");
+    },
+    saveRaceReflection: async () => {
+      throw new Error("トップ画面表示では振り返りを保存しない");
     },
     invalidateAnalysis: async () => {
       throw new Error("トップ画面表示では既存分析を無効化しない");

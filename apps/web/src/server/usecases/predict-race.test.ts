@@ -357,11 +357,23 @@ const createUnusedRunRepositoryMethods = () => {
     findQaEntriesByRaceId: async () => {
       throw new Error("predictではQ&A履歴を読まない");
     },
+    findRaceResultByRaceId: async () => {
+      throw new Error("predictではレース結果を読まない");
+    },
+    findRaceReflectionByRaceId: async () => {
+      throw new Error("predictでは振り返りを読まない");
+    },
     saveRace: async () => {
       throw new Error("テストで差し替えていないRace保存が呼ばれました");
     },
     savePrediction: async () => {
       throw new Error("テストで差し替えていないPrediction保存が呼ばれました");
+    },
+    saveRaceResult: async () => {
+      throw new Error("predictではレース結果を保存しない");
+    },
+    saveRaceReflection: async () => {
+      throw new Error("predictでは振り返りを保存しない");
     },
     invalidateAnalysis: async () => {
       throw new Error("テストで差し替えていない分析無効化が呼ばれました");

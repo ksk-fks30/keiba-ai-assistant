@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import sampleRace from "@fixtures/races/sample-race.json";
-import { parseRace, type Prediction, type QaEntry } from "@keiba-ai-assistant/models";
+import {
+  parseRace,
+  type Prediction,
+  type QaEntry,
+  type RaceReflection,
+  type RaceResult
+} from "@keiba-ai-assistant/models";
 import { createRunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
 import {
   appendQaEntry,
@@ -12,7 +18,9 @@ import {
   readRace,
   readQaEntries,
   writePrediction,
-  writeRace
+  writeRace,
+  writeRaceReflection,
+  writeRaceResult
 } from "@keiba-ai-assistant/storage";
 
 const tempRootDirs: string[] = [];
@@ -50,6 +58,8 @@ describe("createRunRepository", () => {
         race,
         hasPrediction: true,
         hasQa: true,
+        hasResult: false,
+        hasReflection: false,
         updatedAt: expect.any(String)
       }
     ]);
@@ -152,6 +162,39 @@ describe("createRunRepository", () => {
     expect(actual).toEqual([entry]);
   });
 
+  test("RaceResultとRaceReflectionを保存して取得できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const race = parseRace(sampleRace);
+    const raceResult = createRaceResult(race.id);
+    const raceReflection = createRaceReflection(race.id);
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+
+    // Act
+    await repository.saveRaceResult(raceResult);
+    await repository.saveRaceReflection(raceReflection);
+    const actualRaceResult = await repository.findRaceResultByRaceId(race.id);
+    const actualRaceReflection = await repository.findRaceReflectionByRaceId(race.id);
+
+    // Assert
+    expect(actualRaceResult).toEqual(raceResult);
+    expect(actualRaceReflection).toEqual(raceReflection);
+  });
+
+  test("result.jsonとreflection.jsonが存在しない場合はnullを返す", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const repository = createRunRepository({ runStoreOptions: { rootDir } });
+
+    // Act
+    const actualRaceResult = await repository.findRaceResultByRaceId("missing-race");
+    const actualRaceReflection = await repository.findRaceReflectionByRaceId("missing-race");
+
+    // Assert
+    expect(actualRaceResult).toBeNull();
+    expect(actualRaceReflection).toBeNull();
+  });
+
   test("RaceとPredictionを保存できる", async () => {
     // Arrange
     const rootDir = await createTempRootDir();
@@ -180,6 +223,8 @@ describe("createRunRepository", () => {
     await writeRace(race, { rootDir });
     await writePrediction(prediction, { rootDir });
     await appendQaEntry(entry, { rootDir });
+    await writeRaceResult(createRaceResult(race.id), { rootDir });
+    await writeRaceReflection(createRaceReflection(race.id), { rootDir });
 
     // Act
     await repository.invalidateAnalysis(race.id);
@@ -190,7 +235,9 @@ describe("createRunRepository", () => {
       raceId: race.id,
       hasRace: true,
       hasPrediction: false,
-      hasQa: false
+      hasQa: false,
+      hasResult: false,
+      hasReflection: false
     });
   });
 });
@@ -230,6 +277,37 @@ const createQaEntry = (raceId: string, id: string, question: string): QaEntry =>
     question,
     answer: `${question}への回答です。`,
     createdAt: "2026-05-31T06:10:00.000Z"
+  };
+};
+
+/** repository テスト用の最小限の RaceResult fixture を作る。 */
+const createRaceResult = (raceId: string): RaceResult => {
+  return {
+    raceId,
+    sourceUrl: `https://race.netkeiba.com/race/result.html?race_id=${raceId}`,
+    collectedAt: "2026-06-07T16:05:00.000Z",
+    entries: [
+      {
+        rank: "1",
+        horseNumber: 3,
+        horseName: "フィクスチャホース",
+        jockey: "架空騎手",
+        popularity: 2,
+        odds: 4.8,
+        time: "1:33.8",
+        margin: ""
+      }
+    ]
+  };
+};
+
+/** repository テスト用の最小限の RaceReflection fixture を作る。 */
+const createRaceReflection = (raceId: string): RaceReflection => {
+  return {
+    raceId,
+    reflectedAt: "2026-06-07T16:20:00.000Z",
+    summary: "先行力評価は良かったが、馬場傾向の見積もりが甘かった。",
+    lessonIds: ["lesson-fixture-001"]
   };
 };
 

@@ -1,6 +1,15 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parsePrediction, parseRace, type Prediction, type Race } from "@keiba-ai-assistant/models";
+import {
+  parsePrediction,
+  parseRace,
+  parseRaceReflection,
+  parseRaceResult,
+  type Prediction,
+  type Race,
+  type RaceReflection,
+  type RaceResult
+} from "@keiba-ai-assistant/models";
 import { fileExists, isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 import { getWorkspacePath } from "@keiba-ai-assistant/storage/workspace-root";
 
@@ -19,6 +28,10 @@ export interface RunSummary {
   hasPrediction: boolean;
   /** `qa.jsonl` が保存済みかどうか。 */
   hasQa: boolean;
+  /** `result.json` が保存済みかどうか。 */
+  hasResult: boolean;
+  /** `reflection.json` が保存済みかどうか。 */
+  hasReflection: boolean;
   /** run ディレクトリの最終更新日時。 */
   updatedAt: string;
 }
@@ -27,6 +40,8 @@ const defaultRunRootDirName = "runs" as const;
 const raceFileName = "race.json" as const;
 const predictionFileName = "prediction.json" as const;
 const qaFileName = "qa.jsonl" as const;
+const resultFileName = "result.json" as const;
+const reflectionFileName = "reflection.json" as const;
 
 /** 指定したレースIDに対応する run ディレクトリのパスを返す。 */
 export const getRunDir = (raceId: string, options: RunStoreOptions = {}): string => {
@@ -112,7 +127,43 @@ export const readPrediction = async (
   return parsePrediction(json);
 };
 
-/** 指定した run の既存分析結果とQ&A履歴を削除し、race.jsonだけを残せる状態にする。 */
+/** RaceResult モデルを検証して、対象 run の `result.json` に保存する。 */
+export const writeRaceResult = async (
+  result: RaceResult,
+  options: RunStoreOptions = {}
+): Promise<void> => {
+  const runDir = await ensureRunDir(result.raceId, options);
+  await writeJson(join(runDir, resultFileName), parseRaceResult(result));
+};
+
+/** 対象 run の `result.json` を読み込み、RaceResult モデルとして検証して返す。 */
+export const readRaceResult = async (
+  raceId: string,
+  options: RunStoreOptions = {}
+): Promise<RaceResult> => {
+  const json = await readJson(join(getRunDir(raceId, options), resultFileName));
+  return parseRaceResult(json);
+};
+
+/** RaceReflection モデルを検証して、対象 run の `reflection.json` に保存する。 */
+export const writeRaceReflection = async (
+  reflection: RaceReflection,
+  options: RunStoreOptions = {}
+): Promise<void> => {
+  const runDir = await ensureRunDir(reflection.raceId, options);
+  await writeJson(join(runDir, reflectionFileName), parseRaceReflection(reflection));
+};
+
+/** 対象 run の `reflection.json` を読み込み、RaceReflection モデルとして検証して返す。 */
+export const readRaceReflection = async (
+  raceId: string,
+  options: RunStoreOptions = {}
+): Promise<RaceReflection> => {
+  const json = await readJson(join(getRunDir(raceId, options), reflectionFileName));
+  return parseRaceReflection(json);
+};
+
+/** 指定した run の既存分析、Q&A、結果振り返りを削除し、race.jsonだけを残せる状態にする。 */
 export const invalidateRunAnalysis = async (
   raceId: string,
   options: RunStoreOptions = {}
@@ -120,7 +171,9 @@ export const invalidateRunAnalysis = async (
   const runDir = getRunDir(raceId, options);
   await Promise.all([
     rm(join(runDir, predictionFileName), { force: true }),
-    rm(join(runDir, qaFileName), { force: true })
+    rm(join(runDir, qaFileName), { force: true }),
+    rm(join(runDir, resultFileName), { force: true }),
+    rm(join(runDir, reflectionFileName), { force: true })
   ]);
 };
 
@@ -147,6 +200,8 @@ const readRunSummary = async (
     hasRace: await fileExists(join(runDir, raceFileName)),
     hasPrediction: await fileExists(join(runDir, predictionFileName)),
     hasQa: await fileExists(join(runDir, qaFileName)),
+    hasResult: await fileExists(join(runDir, resultFileName)),
+    hasReflection: await fileExists(join(runDir, reflectionFileName)),
     updatedAt: stats.mtime.toISOString()
   };
 };

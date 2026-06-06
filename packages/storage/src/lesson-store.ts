@@ -314,6 +314,46 @@ export const updateLessonEntryStatus = async (
   });
 };
 
+/** 指定IDのLessonを返す。存在しない場合はnullを返す。 */
+export const findLessonEntryById = async (
+  lessonId: string,
+  options: LessonStoreOptions = {}
+): Promise<LessonEntry | null> => {
+  return withDatabase(options, (database) => {
+    const row = database
+      .prepare<LessonEntryRow>("SELECT * FROM lesson_entries WHERE id = ?")
+      .get(lessonId);
+    if (row === undefined) {
+      return null;
+    }
+
+    return rowToLessonEntry(row);
+  });
+};
+
+/** 指定ID群のLessonを、入力IDの順序を保って返す。存在しないIDは除外する。 */
+export const findLessonEntriesByIds = async (
+  lessonIds: string[],
+  options: LessonStoreOptions = {}
+): Promise<LessonEntry[]> => {
+  if (lessonIds.length === 0) {
+    return [];
+  }
+
+  return withDatabase(options, (database) => {
+    const uniqueLessonIds = [...new Set(lessonIds)];
+    const placeholders = uniqueLessonIds.map(() => "?").join(", ");
+    const rows = database
+      .prepare<LessonEntryRow>(`SELECT * FROM lesson_entries WHERE id IN (${placeholders})`)
+      .all(...uniqueLessonIds);
+    const lessonsById = new Map(rows.map((row) => [row.id, rowToLessonEntry(row)]));
+
+    return uniqueLessonIds
+      .map((lessonId) => lessonsById.get(lessonId))
+      .filter((lesson): lesson is LessonEntry => lesson !== undefined);
+  });
+};
+
 /** 保存済みLessonを一覧取得する。 */
 export const listLessonEntries = async (
   input: ListLessonEntriesInput = {},

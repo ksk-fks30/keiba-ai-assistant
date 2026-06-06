@@ -228,6 +228,18 @@ const createUnusedRunRepositoryMethods = () => {
     savePrediction: async () => {
       throw new Error("追加質問ではPredictionを保存しない");
     },
+    findRaceResultByRaceId: async () => {
+      throw new Error("追加質問ではレース結果を読まない");
+    },
+    findRaceReflectionByRaceId: async () => {
+      throw new Error("追加質問では振り返りを読まない");
+    },
+    saveRaceResult: async () => {
+      throw new Error("追加質問ではレース結果を保存しない");
+    },
+    saveRaceReflection: async () => {
+      throw new Error("追加質問では振り返りを保存しない");
+    },
     invalidateAnalysis: async () => {
       throw new Error("追加質問では既存分析を無効化しない");
     }

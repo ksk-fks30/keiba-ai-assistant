@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import sampleRace from "@fixtures/races/sample-race.json";
-import { parseRace, type Prediction, type QaEntry } from "@keiba-ai-assistant/models";
+import {
+  parseRace,
+  type Prediction,
+  type QaEntry,
+  type RaceReflection,
+  type RaceResult
+} from "@keiba-ai-assistant/models";
 import {
   appendQaEntry,
   createRun,
@@ -13,9 +19,13 @@ import {
   readQaEntries,
   readPrediction,
   readRace,
+  readRaceReflection,
+  readRaceResult,
   runExists,
   writePrediction,
   writeRace,
+  writeRaceReflection,
+  writeRaceResult,
   type RunStoreOptions
 } from "@keiba-ai-assistant/storage";
 
@@ -71,7 +81,9 @@ describe("run-store", () => {
         raceId: race.id,
         hasRace: true,
         hasPrediction: false,
-        hasQa: false
+        hasQa: false,
+        hasResult: false,
+        hasReflection: false
       }
     ]);
   });
@@ -113,7 +125,7 @@ describe("run-store", () => {
     expect(summaries[0]?.hasPrediction).toBe(true);
   });
 
-  test("既存の予想結果とQ&A履歴だけを無効化できる", async () => {
+  test("既存の予想結果、Q&A履歴、結果振り返りを無効化できる", async () => {
     // Arrange
     const options = await createTempRunStoreOptions();
     const race = parseRace(sampleRace);
@@ -150,6 +162,8 @@ describe("run-store", () => {
     await writeRace(race, options);
     await writePrediction(prediction, options);
     await appendQaEntry(qaEntry, options);
+    await writeRaceResult(createRaceResult(race.id), options);
+    await writeRaceReflection(createRaceReflection(race.id), options);
 
     // Act
     await invalidateRunAnalysis(race.id, options);
@@ -160,15 +174,42 @@ describe("run-store", () => {
     // Assert
     expect(actualRace).toEqual(race);
     await expect(readPrediction(race.id, options)).rejects.toThrow();
+    await expect(readRaceResult(race.id, options)).rejects.toThrow();
+    await expect(readRaceReflection(race.id, options)).rejects.toThrow();
     expect(qaEntries).toEqual([]);
     expect(summaries).toMatchObject([
       {
         raceId: race.id,
         hasRace: true,
         hasPrediction: false,
-        hasQa: false
+        hasQa: false,
+        hasResult: false,
+        hasReflection: false
       }
     ]);
+  });
+
+  test("レース結果と振り返りを保存してモデルとして読み込める", async () => {
+    // Arrange
+    const options = await createTempRunStoreOptions();
+    const raceId = "fixture-aoba-mile-2026";
+    const result = createRaceResult(raceId);
+    const reflection = createRaceReflection(raceId);
+
+    // Act
+    await writeRaceResult(result, options);
+    await writeRaceReflection(reflection, options);
+    const actualResult = await readRaceResult(raceId, options);
+    const actualReflection = await readRaceReflection(raceId, options);
+    const summaries = await listRuns(options);
+
+    // Assert
+    expect(actualResult).toEqual(result);
+    expect(actualReflection).toEqual(reflection);
+    expect(summaries[0]).toMatchObject({
+      hasResult: true,
+      hasReflection: true
+    });
   });
 
   test("Q&A履歴を追記してモデルとして読み込める", async () => {
@@ -221,4 +262,35 @@ const createTempRunStoreOptions = async (): Promise<RunStoreOptions> => {
   const rootDir = await mkdtemp(join(tmpdir(), "keiba-ai-run-store-"));
   tempRootDirs.push(rootDir);
   return { rootDir };
+};
+
+/** run-storeテスト用のRaceResultを作る。 */
+const createRaceResult = (raceId: string): RaceResult => {
+  return {
+    raceId,
+    sourceUrl: `https://race.netkeiba.com/race/result.html?race_id=${raceId}`,
+    collectedAt: "2026-06-07T16:05:00.000Z",
+    entries: [
+      {
+        rank: "1",
+        horseNumber: 3,
+        horseName: "フィクスチャホース",
+        jockey: "架空騎手",
+        popularity: 2,
+        odds: 4.8,
+        time: "1:33.8",
+        margin: ""
+      }
+    ]
+  };
+};
+
+/** run-storeテスト用のRaceReflectionを作る。 */
+const createRaceReflection = (raceId: string): RaceReflection => {
+  return {
+    raceId,
+    reflectedAt: "2026-06-07T16:20:00.000Z",
+    summary: "先行力評価は良かったが、馬場傾向の見積もりが甘かった。",
+    lessonIds: ["lesson-fixture-001"]
+  };
 };

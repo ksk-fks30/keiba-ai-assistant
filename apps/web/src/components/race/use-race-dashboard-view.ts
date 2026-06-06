@@ -238,7 +238,7 @@ const buildHorseDashboardView = (horse: Horse): HorseDashboardView => {
     jockeyLabel: horse.jockey ?? "未取得",
     trainerLabel: horse.trainer ?? "未取得",
     bodyWeightLabel: formatBodyWeight(horse.bodyWeightKg, horse.bodyWeightDiffKg),
-    oddsLabel: horse.odds === undefined ? "未取得" : `${horse.odds.toFixed(1)}倍`,
+    oddsLabel: horse.odds === undefined ? "未取得" : horse.odds.toFixed(1),
     popularity: horse.popularity,
     popularityLabel: horse.popularity === undefined ? "未取得" : horse.popularity.toString(),
     pedigreeLabel: formatPedigree(horse),

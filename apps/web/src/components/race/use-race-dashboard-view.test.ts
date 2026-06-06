@@ -37,7 +37,7 @@ describe("useRaceDashboardView", () => {
           id: "fixture-horse-001",
           name: "アオバライト",
           bodyWeightLabel: "486kg (+2)",
-          oddsLabel: "3.8倍",
+          oddsLabel: "3.8",
           popularity: 2,
           popularityLabel: "2",
           pedigreeLabel: "父 ミドリノカゼ / 母 ライトステップ / 母父 サンプルスター",

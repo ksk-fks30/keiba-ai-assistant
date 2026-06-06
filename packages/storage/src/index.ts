@@ -7,6 +7,8 @@ export {
 export {
   getDefaultLessonDatabasePath,
   initializeLessonDatabase,
+  findLessonEntriesByIds,
+  findLessonEntryById,
   listLessonEntries,
   listPredictionLessonReferences,
   recordPredictionLessonReferences,
@@ -22,9 +24,13 @@ export {
   listRuns,
   readPrediction,
   readRace,
+  readRaceReflection,
+  readRaceResult,
   runExists,
   writePrediction,
-  writeRace
+  writeRace,
+  writeRaceReflection,
+  writeRaceResult
 } from "@keiba-ai-assistant/storage/run-store";
 export type { CacheStoreOptions } from "@keiba-ai-assistant/storage/cache-store";
 export type {

@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import { ButtonLink } from "@keiba-ai-assistant/web/components/ui/Button";
 import type { HomePageProps } from "@keiba-ai-assistant/web/server/usecases/show-home";
 
 /** トップ画面に表示する保存済みrunの一覧。 */
@@ -55,13 +56,15 @@ const SavedRunListItem = ({ run }: { run: HomePageProps["runs"][number] }) => {
       {race === null ? (
         <span className="text-sm font-semibold text-app-subtle">表示不可</span>
       ) : (
-        <a
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-app-border px-3 py-2 text-sm font-bold text-turf transition hover:bg-turf-soft"
+        <ButtonLink
+          className="shrink-0"
           href={`/races/${encodeURIComponent(run.raceId)}`}
+          variant="secondary"
+          weight="bold"
         >
           詳細
           <ArrowRight aria-hidden="true" size={16} />
-        </a>
+        </ButtonLink>
       )}
     </div>
   );
