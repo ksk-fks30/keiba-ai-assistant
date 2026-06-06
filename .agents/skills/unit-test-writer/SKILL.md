@@ -31,6 +31,7 @@ Vitest のユニットテストを追加・修正する際に使う。root の `
 - 1テストで確認する責務を絞る。同じ振る舞いに対する複数 assertion は許容する。
 - モックは最小限にし、実装詳細ではなく公開された振る舞いを検証する。
 - テスト内の helper 関数も原則として `function` 宣言ではなく `const` のarrow functionで書く。
+- テストのためだけに、本来は非公開でよい関数・定数を `export` しない。公開APIとして自然でない場合は、公開済みのusecase、hook、component、repositoryなどの振る舞い経由でテストするか、無理に直接テストしない。
 - workspace package の import は `@keiba-ai-assistant/...` を使う。
 - repository 全体で共有する fixture は `fixtures/` 配下に置き、`@fixtures/...` で import する。
 - fixture は実データ由来の情報を含めない。

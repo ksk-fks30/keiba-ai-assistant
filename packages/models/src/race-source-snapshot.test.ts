@@ -26,6 +26,18 @@ describe("parseRaceSourceSnapshot", () => {
           sourceUrl: "https://example.test/horse/fixture-horse-001",
           pageTitle: "シラユキコード"
         }
+      ],
+      pedigreePages: [
+        {
+          horseId: "fixture-horse-001",
+          horseName: "シラユキコード",
+          relation: "horse",
+          page: {
+            ...racePage,
+            sourceUrl: "https://example.test/horse/ped/fixture-horse-001",
+            pageTitle: "シラユキコード 血統"
+          }
+        }
       ]
     };
 

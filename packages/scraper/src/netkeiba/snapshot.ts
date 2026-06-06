@@ -18,6 +18,8 @@ export interface SourcePageSnapshotOptions {
   tableLimit?: number;
   /** AIに渡すリンクの最大件数。 */
   linkLimit?: number;
+  /** リンク上限に関わらず優先して残すhref/textのパターン。 */
+  priorityLinkPatterns?: RegExp[];
 }
 
 const defaultVisibleTextLimit = 20_000;
@@ -34,7 +36,11 @@ export const createSourcePageSnapshot = async (
   const bodyText = await readLocatorText(page.locator(netkeibaSelectors.body));
   const headings = await readLocatorTexts(page.locator(netkeibaSelectors.headings));
   const tableTexts = await readLocatorTexts(page.locator(netkeibaSelectors.tables));
-  const links = await readPageLinks(page, options.linkLimit ?? defaultLinkLimit);
+  const links = await readPageLinks(
+    page,
+    options.linkLimit ?? defaultLinkLimit,
+    options.priorityLinkPatterns ?? []
+  );
 
   return parseSourcePageSnapshot({
     sourceUrl: page.url(),
@@ -74,25 +80,86 @@ const readLocatorTexts = async (locator: Locator): Promise<string[]> => {
 };
 
 /** ページ上のリンクを、AI構造化に必要なテキストとhrefだけへ削る。 */
-const readPageLinks = async (page: Page, limit: number): Promise<SourcePageLink[]> => {
-  const links = await page.locator(netkeibaSelectors.links).evaluateAll(
-    (elements, maxCount) =>
-      elements.slice(0, maxCount).map((element) => {
-        const anchor = element as HTMLAnchorElement;
-        return {
-          text: anchor.innerText,
-          href: anchor.href
-        };
-      }),
-    limit
+const readPageLinks = async (
+  page: Page,
+  limit: number,
+  priorityLinkPatterns: RegExp[]
+): Promise<SourcePageLink[]> => {
+  if (limit <= 0 && priorityLinkPatterns.length === 0) {
+    return [];
+  }
+
+  const links = await page.locator(netkeibaSelectors.links).evaluateAll((elements) =>
+    elements.map((element) => {
+      const anchor = element as HTMLAnchorElement;
+      return {
+        text: anchor.innerText,
+        href: anchor.href
+      };
+    })
   );
 
-  return links
+  const normalizedLinks = links
     .map((link) => ({
       text: normalizeInlineText(link.text),
       href: normalizeInlineText(link.href)
     }))
     .filter((link) => isNonEmptyText(link.text) && isNonEmptyText(link.href));
+
+  return selectPageLinks(normalizedLinks, limit, priorityLinkPatterns);
+};
+
+/** 重要リンクを落とさないように、優先リンクを先に確保してから上限まで通常リンクを足す。 */
+const selectPageLinks = (
+  links: SourcePageLink[],
+  limit: number,
+  priorityLinkPatterns: RegExp[]
+): SourcePageLink[] => {
+  if (priorityLinkPatterns.length === 0) {
+    return links.slice(0, limit);
+  }
+
+  const selectedLinks: SourcePageLink[] = [];
+  const selectedKeys = new Set<string>();
+  const addLink = (link: SourcePageLink): void => {
+    const key = `${link.text}\n${link.href}`;
+    if (selectedKeys.has(key)) {
+      return;
+    }
+
+    selectedKeys.add(key);
+    selectedLinks.push(link);
+  };
+
+  for (const link of links) {
+    if (isPriorityLink(link, priorityLinkPatterns)) {
+      addLink(link);
+    }
+  }
+
+  const targetLimit = Math.max(limit, selectedLinks.length);
+  for (const link of links) {
+    if (selectedLinks.length >= targetLimit) {
+      break;
+    }
+
+    addLink(link);
+  }
+
+  return selectedLinks;
+};
+
+/** hrefまたは表示テキストが優先パターンに一致するリンクかどうかを判定する。 */
+const isPriorityLink = (link: SourcePageLink, priorityLinkPatterns: RegExp[]): boolean => {
+  return priorityLinkPatterns.some(
+    (pattern) => matchesPattern(pattern, link.href) || matchesPattern(pattern, link.text)
+  );
+};
+
+/** RegExp の lastIndex に影響されずに文字列一致を判定する。 */
+const matchesPattern = (pattern: RegExp, value: string): boolean => {
+  pattern.lastIndex = 0;
+  return pattern.test(value);
 };
 
 /** 複数行の可視テキストを、行単位の意味が残る形で正規化する。 */

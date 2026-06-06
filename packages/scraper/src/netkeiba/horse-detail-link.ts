@@ -33,6 +33,31 @@ export const normalizeHorseDetailHref = (href: string): string | null => {
   return buildHorseDetailUrl(horseId);
 };
 
+/** netKeibaの馬詳細ページURLから血統ページURLを作る。 */
+export const buildHorsePedigreeHref = (horseDetailHref: string): string | null => {
+  const url = parseUrl(horseDetailHref);
+  if (url === null) {
+    return null;
+  }
+
+  const horseId = extractHorseId(url);
+  if (horseId === null) {
+    return null;
+  }
+
+  return buildHorsePedigreeUrl(horseId);
+};
+
+/** netKeibaの馬詳細ページURLから馬IDを読み取る。 */
+export const readHorseIdFromDetailHref = (horseDetailHref: string): string | null => {
+  const url = parseUrl(horseDetailHref);
+  if (url === null) {
+    return null;
+  }
+
+  return extractHorseId(url);
+};
+
 /** 文字列をURLとして解釈できる場合だけURLを返す。 */
 const parseUrl = (href: string): URL | null => {
   try {
@@ -44,13 +69,13 @@ const parseUrl = (href: string): URL | null => {
 
 /** PC版とSP版モーダルのリンク形式から馬IDを抽出する。 */
 const extractHorseId = (url: URL): string | null => {
-  const pathHorseId = url.pathname.match(/\/horse\/(\d+)\/?/)?.[1];
+  const pathHorseId = url.pathname.match(/^\/horse\/([0-9A-Za-z]+)\/?$/)?.[1];
   if (pathHorseId !== undefined) {
     return pathHorseId;
   }
 
   const queryHorseId = url.searchParams.get("horse_id");
-  if (queryHorseId !== null && /^\d+$/.test(queryHorseId)) {
+  if (queryHorseId !== null && /^[0-9A-Za-z]+$/.test(queryHorseId)) {
     return queryHorseId;
   }
 
@@ -60,4 +85,9 @@ const extractHorseId = (url: URL): string | null => {
 /** 馬IDからPC版の馬詳細URLを作る。 */
 const buildHorseDetailUrl = (horseId: string): string => {
   return `https://db.netkeiba.com/horse/${horseId}/`;
+};
+
+/** 馬IDからPC版の血統ページURLを作る。 */
+const buildHorsePedigreeUrl = (horseId: string): string => {
+  return `https://db.netkeiba.com/horse/ped/${horseId}/`;
 };

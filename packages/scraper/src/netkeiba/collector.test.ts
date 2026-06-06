@@ -44,7 +44,7 @@ describe("collectRaceSnapshotFromNetkeiba", () => {
     });
   });
 
-  test("上限未指定なら馬詳細ページを全件取得する", async () => {
+  test("上限未指定なら馬詳細ページと血統ページを全件取得する", async () => {
     // Arrange
     setupSourcePageSnapshots(20);
 
@@ -53,13 +53,19 @@ describe("collectRaceSnapshotFromNetkeiba", () => {
 
     // Assert
     expect(actual.horseDetailPages).toHaveLength(20);
-    expect(mocks.goto).toHaveBeenCalledTimes(21);
-    expect(mocks.goto).toHaveBeenLastCalledWith("https://db.netkeiba.com/horse/0000000020/", {
+    expect(actual.pedigreePages).toHaveLength(20);
+    expect(actual.pedigreePages[0]).toMatchObject({
+      horseId: "0000000001",
+      horseName: "horse-1",
+      relation: "horse"
+    });
+    expect(mocks.goto).toHaveBeenCalledTimes(41);
+    expect(mocks.goto).toHaveBeenLastCalledWith("https://db.netkeiba.com/horse/ped/0000000020/", {
       waitUntil: "domcontentloaded"
     });
   });
 
-  test("上限指定があれば指定件数だけ馬詳細ページを取得する", async () => {
+  test("上限指定があれば指定件数だけ馬詳細ページと血統ページを取得する", async () => {
     // Arrange
     setupSourcePageSnapshots(20);
 
@@ -72,13 +78,57 @@ describe("collectRaceSnapshotFromNetkeiba", () => {
 
     // Assert
     expect(actual.horseDetailPages).toHaveLength(18);
-    expect(mocks.goto).toHaveBeenCalledTimes(19);
-    expect(mocks.goto).toHaveBeenLastCalledWith("https://db.netkeiba.com/horse/0000000018/", {
+    expect(actual.pedigreePages).toHaveLength(18);
+    expect(mocks.goto).toHaveBeenCalledTimes(37);
+    expect(mocks.goto).toHaveBeenLastCalledWith("https://db.netkeiba.com/horse/ped/0000000018/", {
       waitUntil: "domcontentloaded"
     });
   });
 
-  test("上限が0なら馬詳細ページを取得しない", async () => {
+  test("馬詳細ページと血統ページのsnapshotを軽量設定で作成する", async () => {
+    // Arrange
+    setupSourcePageSnapshots(1);
+
+    // Act
+    await collectRaceSnapshotFromNetkeiba({ raceUrl, minDelayMs: 1 });
+
+    // Assert
+    expect(mocks.createSourcePageSnapshot.mock.calls[0]?.[1]).toMatchObject({
+      visibleTextLimit: 16_000,
+      tableTextLimit: 4_000,
+      tableLimit: 10,
+      linkLimit: 200,
+      priorityLinkPatterns: expect.arrayContaining([expect.any(RegExp)])
+    });
+    expect(mocks.createSourcePageSnapshot.mock.calls[1]?.[1]).toMatchObject({
+      visibleTextLimit: 7_000,
+      tableTextLimit: 3_000,
+      tableLimit: 8,
+      linkLimit: 0
+    });
+    expect(mocks.createSourcePageSnapshot.mock.calls[2]?.[1]).toMatchObject({
+      visibleTextLimit: 4_000,
+      tableTextLimit: 3_000,
+      tableLimit: 4,
+      linkLimit: 0
+    });
+  });
+
+  test("待機時間未指定なら全頭取得向けの既定間隔で待機する", async () => {
+    // Arrange
+    setupSourcePageSnapshots(1);
+
+    // Act
+    await collectRaceSnapshotFromNetkeiba({ raceUrl });
+
+    // Assert
+    expect(mocks.waitForNextPage).toHaveBeenCalledTimes(3);
+    expect(mocks.waitForNextPage).toHaveBeenNthCalledWith(1, { minDelayMs: 15_000 });
+    expect(mocks.waitForNextPage).toHaveBeenNthCalledWith(2, { minDelayMs: 15_000 });
+    expect(mocks.waitForNextPage).toHaveBeenNthCalledWith(3, { minDelayMs: 15_000 });
+  });
+
+  test("上限が0なら馬詳細ページと血統ページを取得しない", async () => {
     // Arrange
     setupSourcePageSnapshots(20);
 
@@ -91,6 +141,7 @@ describe("collectRaceSnapshotFromNetkeiba", () => {
 
     // Assert
     expect(actual.horseDetailPages).toEqual([]);
+    expect(actual.pedigreePages).toEqual([]);
     expect(mocks.goto).toHaveBeenCalledTimes(1);
     expect(mocks.createSourcePageSnapshot).toHaveBeenCalledTimes(1);
   });
@@ -105,8 +156,14 @@ const setupSourcePageSnapshots = (horseCount: number): void => {
       return createRacePageSnapshot(horseCount);
     }
 
-    const horseNumber = snapshotIndex;
+    const horsePageIndex = snapshotIndex - 1;
+    const horseNumber = Math.floor(horsePageIndex / 2) + 1;
+    const isPedigreePage = horsePageIndex % 2 === 1;
     snapshotIndex += 1;
+    if (isPedigreePage) {
+      return createHorsePedigreeSnapshot(horseNumber);
+    }
+
     return createHorseDetailSnapshot(horseNumber);
   });
 };
@@ -132,6 +189,19 @@ const createHorseDetailSnapshot = (horseNumber: number): SourcePageSnapshot => {
     visibleText: `horse-${horseNumber} detail`,
     headings: [`horse-${horseNumber}`],
     tableTexts: [],
+    links: [],
+    capturedAt: "2026-05-31T12:10:00.000Z"
+  };
+};
+
+/** collector テスト用の血統ページsnapshotを作る。 */
+const createHorsePedigreeSnapshot = (horseNumber: number): SourcePageSnapshot => {
+  return {
+    sourceUrl: `https://db.netkeiba.com/horse/ped/${horseNumber.toString().padStart(10, "0")}/`,
+    pageTitle: `horse-${horseNumber} pedigree`,
+    visibleText: `horse-${horseNumber} pedigree\nテスト系\nFNo.[1-a]`,
+    headings: [`horse-${horseNumber} pedigree`],
+    tableTexts: ["5代血統表"],
     links: [],
     capturedAt: "2026-05-31T12:10:00.000Z"
   };

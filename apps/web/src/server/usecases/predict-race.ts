@@ -29,6 +29,12 @@ export interface PredictRaceUseCaseInput {
   minDelayMs?: number | undefined;
   /** 馬詳細ページの取得上限。未指定なら全頭取得する。 */
   horseDetailLimit?: number | undefined;
+  /** レース情報構造化の最大待機時間。未指定の場合は既定値を使う。 */
+  extractTimeoutMs?: number | undefined;
+  /** 予想分析の最大待機時間。未指定の場合は既定値を使う。 */
+  analysisTimeoutMs?: number | undefined;
+  /** ジョブ中止など、呼び出し元からの中断通知。 */
+  signal?: AbortSignal | undefined;
   /** ジョブコンソールなど呼び出し元へ処理状況を伝える関数。 */
   onProgress?: ((message: string) => void) | undefined;
 }
@@ -62,6 +68,9 @@ export type PredictRaceUseCase = (
   input: PredictRaceUseCaseInput
 ) => Promise<PredictRaceUseCaseResult>;
 
+const defaultExtractTimeoutMs = 30 * 60 * 1000;
+const defaultAnalysisTimeoutMs = 30 * 60 * 1000;
+
 /** 依存関係を注入してWeb版predict usecaseを作る。 */
 export const createPredictRaceUseCase = (
   dependencies: PredictRaceUseCaseDependencies
@@ -73,12 +82,16 @@ export const createPredictRaceUseCase = (
 
   return async (input) => {
     const raceUrl = normalizeNetkeibaRaceUrl(input.raceUrl);
+    throwIfAborted(input.signal);
     reportProgress(input, "netKeibaからレース情報を取得しています。");
     const snapshot = await collectRaceSnapshot(buildCollectRaceSnapshotInput(input, raceUrl));
+    throwIfAborted(input.signal);
     reportProgress(input, "AIでレース情報を構造化しています。");
     const race = await extractRaceFromSnapshot(buildExtractRaceInput(input, snapshot));
+    throwIfAborted(input.signal);
     reportProgress(input, `レース情報を構造化しました: ${race.name} (${race.id})`);
     const raceWithWeather = await attachWeather(race, weatherProvider, input.onProgress);
+    throwIfAborted(input.signal);
 
     // race.json更新後に古いprediction/QAが残る不整合を避けるため、保存前に既存分析を無効化する。
     reportProgress(input, "既存の予想結果を無効化しています。");
@@ -156,9 +169,15 @@ const buildExtractRaceInput = (
   input: PredictRaceUseCaseInput,
   snapshot: RaceSourceSnapshot
 ): ExtractRaceFromSnapshotInput => {
-  const extractInput: ExtractRaceFromSnapshotInput = { snapshot };
+  const extractInput: ExtractRaceFromSnapshotInput = {
+    snapshot,
+    timeoutMs: input.extractTimeoutMs ?? defaultExtractTimeoutMs
+  };
   if (input.model !== undefined) {
     extractInput.model = input.model;
+  }
+  if (input.signal !== undefined) {
+    extractInput.signal = input.signal;
   }
 
   return extractInput;
@@ -192,9 +211,16 @@ const buildAnalyzeRaceInput = (
   race: Race,
   policy: AnalyzeRaceInput["policy"]
 ): AnalyzeRaceInput => {
-  const analyzeInput: AnalyzeRaceInput = { race, policy };
+  const analyzeInput: AnalyzeRaceInput = {
+    race,
+    policy,
+    timeoutMs: input.analysisTimeoutMs ?? defaultAnalysisTimeoutMs
+  };
   if (input.model !== undefined) {
     analyzeInput.model = input.model;
+  }
+  if (input.signal !== undefined) {
+    analyzeInput.signal = input.signal;
   }
 
   return analyzeInput;
@@ -212,4 +238,13 @@ const readErrorMessage = (error: unknown): string => {
   }
 
   return String(error);
+};
+
+/** 呼び出し元から中断されている場合は、次の外部I/Oへ進む前に停止する。 */
+const throwIfAborted = (signal: AbortSignal | undefined): void => {
+  if (signal?.aborted !== true) {
+    return;
+  }
+
+  throw new Error("レース解析ジョブを中止しました。");
 };

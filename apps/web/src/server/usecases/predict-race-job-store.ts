@@ -34,6 +34,8 @@ export interface PredictRaceJobStore {
   start: (input: StartPredictRaceJobInput) => PredictRaceJobSnapshot;
   /** 指定IDのジョブ状態を返す。存在しない場合はnull。 */
   findById: (jobId: string) => PredictRaceJobSnapshot | null;
+  /** 指定IDの実行中ジョブを中止し、次のジョブを開始できる状態にする。 */
+  abort: (jobId: string) => PredictRaceJobSnapshot | null;
 }
 
 /** 実行中ジョブがあるため新規ジョブを開始できないことを表すError。 */
@@ -60,6 +62,7 @@ interface PredictRaceJobRecord {
   messages: string[];
   createdAt: string;
   updatedAt: string;
+  abortController: AbortController;
   raceId?: string;
   error?: string;
 }
@@ -98,7 +101,8 @@ export const createPredictRaceJobStore = (
         status: "queued",
         messages: [],
         createdAt: timestamp,
-        updatedAt: timestamp
+        updatedAt: timestamp,
+        abortController: new AbortController()
       };
       jobs.set(job.id, job);
       appendMessage(job, "レース解析ジョブを作成しました。", now, maxMessages);
@@ -121,6 +125,22 @@ export const createPredictRaceJobStore = (
       if (job === undefined) {
         return null;
       }
+
+      return toSnapshot(job);
+    },
+    abort: (jobId) => {
+      const job = jobs.get(jobId);
+      if (job === undefined) {
+        return null;
+      }
+      if (!isPredictRaceJobActive(job)) {
+        return toSnapshot(job);
+      }
+
+      job.abortController.abort();
+      job.error = "レース解析ジョブを中止しました。";
+      updateJobStatus(job, "failed", now);
+      appendMessage(job, "レース解析ジョブを中止しました。", now, maxMessages);
 
       return toSnapshot(job);
     }
@@ -151,10 +171,19 @@ const runJob = async (input: {
   try {
     const result = await input.predictRaceUseCase({
       raceUrl: input.input.raceUrl,
+      signal: input.job.abortController.signal,
       onProgress: (message) => {
+        if (!isPredictRaceJobActive(input.job)) {
+          return;
+        }
+
         appendMessage(input.job, message, input.now, input.maxMessages);
       }
     });
+    if (!isPredictRaceJobActive(input.job)) {
+      return;
+    }
+
     input.job.raceId = result.raceId;
     updateJobStatus(input.job, "succeeded", input.now);
     appendMessage(
@@ -164,6 +193,10 @@ const runJob = async (input: {
       input.maxMessages
     );
   } catch (error) {
+    if (!isPredictRaceJobActive(input.job)) {
+      return;
+    }
+
     const message = readErrorMessage(error);
     input.job.error = message;
     updateJobStatus(input.job, "failed", input.now);

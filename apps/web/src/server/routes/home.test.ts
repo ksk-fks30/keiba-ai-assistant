@@ -16,6 +16,9 @@ describe("createHomeRoutes", () => {
         },
         findById: () => {
           throw new Error("GETではジョブ状態を読まない");
+        },
+        abort: () => {
+          throw new Error("GETではジョブを中止しない");
         }
       }
     });
@@ -48,6 +51,9 @@ describe("createHomeRoutes", () => {
         },
         findById: () => {
           throw new Error("POSTではジョブ状態を読まない");
+        },
+        abort: () => {
+          throw new Error("POSTではジョブを中止しない");
         }
       }
     });
@@ -83,6 +89,9 @@ describe("createHomeRoutes", () => {
         },
         findById: () => {
           throw new Error("POSTではジョブ状態を読まない");
+        },
+        abort: () => {
+          throw new Error("POSTではジョブを中止しない");
         }
       }
     });
@@ -114,6 +123,9 @@ describe("createHomeRoutes", () => {
         },
         findById: () => {
           throw new Error("POSTではジョブ状態を読まない");
+        },
+        abort: () => {
+          throw new Error("POSTではジョブを中止しない");
         }
       }
     });
@@ -147,7 +159,10 @@ describe("createHomeRoutes", () => {
         start: () => {
           throw new Error("ジョブ状態取得ではジョブを開始しない");
         },
-        findById: (jobId) => (jobId === job.id ? job : null)
+        findById: (jobId) => (jobId === job.id ? job : null),
+        abort: () => {
+          throw new Error("ジョブ状態取得ではジョブを中止しない");
+        }
       }
     });
 
@@ -170,12 +185,72 @@ describe("createHomeRoutes", () => {
         start: () => {
           throw new Error("ジョブ状態取得ではジョブを開始しない");
         },
-        findById: () => null
+        findById: () => null,
+        abort: () => {
+          throw new Error("ジョブ状態取得ではジョブを中止しない");
+        }
       }
     });
 
     // Act
     const response = await app.request("/races/predict-jobs/missing-job");
+    const actual = (await response.json()) as unknown;
+
+    // Assert
+    expect(response.status).toBe(404);
+    expect(actual).toEqual({ error: "レース解析ジョブが見つかりません。" });
+  });
+
+  test("ジョブIDからレース解析ジョブを中止できる", async () => {
+    // Arrange
+    const job = {
+      ...createPredictRaceJobSnapshot(),
+      status: "failed" as const,
+      error: "レース解析ジョブを中止しました。"
+    };
+    const app = createTestApp({
+      showHomeUseCase: async () => {
+        throw new Error("ジョブ中止ではトップpropsを読まない");
+      },
+      predictRaceJobStore: {
+        start: () => {
+          throw new Error("ジョブ中止ではジョブを開始しない");
+        },
+        findById: () => {
+          throw new Error("ジョブ中止ではジョブ状態を読まない");
+        },
+        abort: (jobId) => (jobId === job.id ? job : null)
+      }
+    });
+
+    // Act
+    const response = await app.request(`/races/predict-jobs/${job.id}`, { method: "DELETE" });
+    const actual = (await response.json()) as unknown;
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(actual).toEqual(job);
+  });
+
+  test("存在しないジョブIDの中止では404を返す", async () => {
+    // Arrange
+    const app = createTestApp({
+      showHomeUseCase: async () => {
+        throw new Error("ジョブ中止ではトップpropsを読まない");
+      },
+      predictRaceJobStore: {
+        start: () => {
+          throw new Error("ジョブ中止ではジョブを開始しない");
+        },
+        findById: () => {
+          throw new Error("ジョブ中止ではジョブ状態を読まない");
+        },
+        abort: () => null
+      }
+    });
+
+    // Act
+    const response = await app.request("/races/predict-jobs/missing-job", { method: "DELETE" });
     const actual = (await response.json()) as unknown;
 
     // Assert

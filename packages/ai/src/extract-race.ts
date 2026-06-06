@@ -14,16 +14,24 @@ import {
   type CodexSdkRuntimeOptions
 } from "@keiba-ai-assistant/ai/codex";
 import {
+  createCodexExecutionControl,
+  raceWithCodexExecutionControl
+} from "@keiba-ai-assistant/ai/codex-timeout";
+import {
   buildRaceDraftOutputSchema,
   buildRaceExtractionPrompt
 } from "@keiba-ai-assistant/ai/prompts";
 
 /** ページsnapshotからRaceを構造化する入力。 */
 export interface ExtractRaceFromSnapshotInput {
-  /** ブラウザ操作で取得した、レースページと馬詳細ページの軽量snapshot。 */
+  /** ブラウザ操作で取得した、レースページ、馬詳細ページ、血統ページの軽量snapshot。 */
   snapshot: RaceSourceSnapshot;
   /** この抽出で利用する Codex モデル名。 */
   model?: string;
+  /** Codex SDK 実行を待つ最大時間。未指定の場合はタイムアウトしない。 */
+  timeoutMs?: number;
+  /** 呼び出し元からの中断通知。 */
+  signal?: AbortSignal;
   /** 取得日時を差し替える関数。テストや再実行で日時を固定する場合に使う。 */
   now?: () => Date;
   /** テストや差し替え実行で使う AI runtime。未指定なら Codex SDK runtime を使う。 */
@@ -36,16 +44,30 @@ export const extractRaceFromSnapshot = async (
 ): Promise<Race> => {
   const prompt = buildRaceExtractionPrompt({ snapshot: input.snapshot });
   const runtime = input.runtime ?? createCodexSdkRuntime(buildCodexSdkRuntimeOptions(input));
+  const executionControl = createCodexExecutionControl({
+    timeoutMs: input.timeoutMs,
+    signal: input.signal,
+    buildTimeoutMessage: buildTimeoutMessage,
+    abortMessage: "レース情報の構造化を中止しました。"
+  });
 
   // Codexには保存メタ情報を含まない下書きを要求し、URLと取得日時はアプリ側で事実値を付与する。
-  const value = await runtime.generateJson({
-    prompt,
-    outputSchema: buildRaceDraftOutputSchema(),
-    model: input.model
-  });
-  const draft = parseRaceDraft(value);
+  try {
+    const value = await raceWithCodexExecutionControl(
+      runtime.generateJson({
+        prompt,
+        outputSchema: buildRaceDraftOutputSchema(),
+        model: input.model,
+        signal: executionControl.signal
+      }),
+      executionControl.promise
+    );
+    const draft = parseRaceDraft(value);
 
-  return buildRace(input, draft);
+    return buildRace(input, draft);
+  } finally {
+    executionControl.dispose();
+  }
 };
 
 /** extractRaceFromSnapshot の入力から Codex SDK runtime の初期化オプションだけを抽出する。 */
@@ -105,6 +127,9 @@ const mapDraftPedigree = (pedigree: RaceDraftPedigree) => {
     ...buildOptionalStringProperty("sire", pedigree.sire),
     ...buildOptionalStringProperty("dam", pedigree.dam),
     ...buildOptionalStringProperty("damSire", pedigree.damSire),
+    ...buildOptionalStringProperty("sireLine", pedigree.sireLine),
+    ...buildOptionalStringProperty("damSireLine", pedigree.damSireLine),
+    ...buildOptionalStringProperty("femaleFamily", pedigree.femaleFamily),
     familyNotes: pedigree.familyNotes.filter(isNonEmptyText)
   };
 };
@@ -169,4 +194,10 @@ const buildNullableNumberProperty = <Key extends string>(
 /** 空ではない文字列かどうかを判定する。 */
 const isNonEmptyText = (value: string): boolean => {
   return value.trim().length > 0;
+};
+
+/** レース情報構造化がタイムアウトしたときに画面へ表示するメッセージを作る。 */
+const buildTimeoutMessage = (timeoutMs: number): string => {
+  const seconds = Math.ceil(timeoutMs / 1000);
+  return `Codex SDK のレース情報構造化が ${seconds} 秒以内に完了しませんでした。時間をおいて再実行してください。`;
 };

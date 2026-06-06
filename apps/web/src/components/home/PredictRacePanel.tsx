@@ -1,4 +1,4 @@
-import { LoaderCircle, Play, Search } from "lucide-react";
+import { Clock3, LoaderCircle, Play, Search, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
 import { PredictJobConsole } from "@keiba-ai-assistant/web/components/home/PredictJobConsole";
 import { PredictToastView } from "@keiba-ai-assistant/web/components/home/PredictToast";
@@ -54,6 +54,35 @@ export const PredictRacePanel = () => {
               </span>
             </button>
           </div>
+          {predictRaceJob.isJobActive ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={!predictRaceJob.canAbort}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-app-border disabled:bg-app-muted disabled:text-app-subtle"
+                style={{ cursor: predictRaceJob.canAbort ? "pointer" : "not-allowed" }}
+                onClick={async () => {
+                  await predictRaceJob.abort();
+                }}
+              >
+                {predictRaceJob.isAbortingJob ? (
+                  <LoaderCircle aria-hidden="true" className="animate-spin" size={14} />
+                ) : (
+                  <XCircle aria-hidden="true" size={14} />
+                )}
+                <span>{predictRaceJob.isAbortingJob ? "中止中" : "ジョブを中止"}</span>
+              </button>
+              {predictRaceJob.activeJobElapsedTimeLabel !== null ? (
+                <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-app-border bg-app-muted px-2.5 text-xs font-semibold text-app-subtle">
+                  <Clock3 aria-hidden="true" size={14} />
+                  <span>経過</span>
+                  <span className="font-mono tabular-nums">
+                    {predictRaceJob.activeJobElapsedTimeLabel}
+                  </span>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           {predictRaceJob.isStartingJob ? (
             <p className="mt-2 text-xs font-semibold leading-relaxed text-info">
               レース解析ジョブを作成しています。

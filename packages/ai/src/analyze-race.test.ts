@@ -68,6 +68,66 @@ describe("analyzeRace", () => {
     // Assert
     await expect(actual).rejects.toThrow();
   });
+
+  test("timeoutMsを指定した場合はCodex runtimeへAbortSignalを渡せる", async () => {
+    // Arrange
+    const race = parseRace(sampleRace);
+    const policy = parsePredictionPolicy({
+      path: "policies/main.md",
+      content: "芝マイルでは持続力を重視する。",
+      loadedAt: "2026-05-31T14:30:00+09:00"
+    });
+    const predictionDraft = createPredictionDraft(race.id);
+    let actualSignal: AbortSignal | undefined;
+    const runtime: CodexJsonRuntime = {
+      generateJson: async (request) => {
+        actualSignal = request.signal;
+        return predictionDraft;
+      }
+    };
+
+    // Act
+    const actual = await analyzeRace({
+      race,
+      policy,
+      timeoutMs: 1_000,
+      runtime
+    });
+
+    // Assert
+    expect(actual.raceId).toBe(race.id);
+    expect(actualSignal).toBeInstanceOf(AbortSignal);
+    expect(actualSignal?.aborted).toBe(false);
+  });
+
+  test("Codex runtimeが返らない場合はtimeoutMsで失敗する", async () => {
+    // Arrange
+    const race = parseRace(sampleRace);
+    const policy = parsePredictionPolicy({
+      path: "policies/main.md",
+      content: "芝マイルでは持続力を重視する。",
+      loadedAt: "2026-05-31T14:30:00+09:00"
+    });
+    let actualSignal: AbortSignal | undefined;
+    const runtime: CodexJsonRuntime = {
+      generateJson: (request) => {
+        actualSignal = request.signal;
+        return new Promise(() => {});
+      }
+    };
+
+    // Act
+    const actual = analyzeRace({
+      race,
+      policy,
+      timeoutMs: 10,
+      runtime
+    });
+
+    // Assert
+    await expect(actual).rejects.toThrow("1 秒以内に完了しませんでした");
+    expect(actualSignal?.aborted).toBe(true);
+  });
 });
 
 /** テストで使う最小限の PredictionDraft fixture を作る。 */

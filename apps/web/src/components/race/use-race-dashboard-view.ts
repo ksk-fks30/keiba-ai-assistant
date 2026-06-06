@@ -88,6 +88,8 @@ export interface HorseDashboardView {
   popularityLabel: string;
   /** 血統の表示文字列。 */
   pedigreeLabel: string;
+  /** 血統系統の表示項目。 */
+  pedigreeLineageItems: RaceMetricView[];
   /** 予想判断に使う血統補足文。 */
   pedigreeNotes: string[];
   /** 直近成績。 */
@@ -240,6 +242,7 @@ const buildHorseDashboardView = (horse: Horse): HorseDashboardView => {
     popularity: horse.popularity,
     popularityLabel: horse.popularity === undefined ? "未取得" : horse.popularity.toString(),
     pedigreeLabel: formatPedigree(horse),
+    pedigreeLineageItems: buildPedigreeLineageItems(horse),
     pedigreeNotes: horse.pedigree.familyNotes,
     pastPerformances: horse.pastPerformances.map(buildPastPerformanceDashboardView)
   };
@@ -408,6 +411,24 @@ const formatPedigree = (horse: Horse): string => {
   ].filter(isDefined);
 
   return parts.length === 0 ? "未取得" : parts.join(" / ");
+};
+
+/** 血統ページ由来の系統情報を表示しやすい項目へ変換する。 */
+const buildPedigreeLineageItems = (horse: Horse): RaceMetricView[] => {
+  return [
+    buildLineageItem("父系", horse.pedigree.sireLine),
+    buildLineageItem("母父系", horse.pedigree.damSireLine),
+    buildLineageItem("牝系", horse.pedigree.femaleFamily)
+  ].filter(isDefined);
+};
+
+/** 空でない系統情報だけを表示項目として返す。 */
+const buildLineageItem = (label: string, value: string | undefined): RaceMetricView | undefined => {
+  if (value === undefined || value.trim().length === 0) {
+    return undefined;
+  }
+
+  return { label, value };
 };
 
 /** 過去走の条件を1つの表示文字列へまとめる。 */

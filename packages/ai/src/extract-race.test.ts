@@ -33,6 +33,9 @@ describe("extractRaceFromSnapshot", () => {
               sire: "フィクションキング",
               dam: "シラユキメモリー",
               damSire: "マイルクラフト",
+              sireLine: "フィクション系",
+              damSireLine: "マイル系",
+              femaleFamily: "FNo.[7-f]",
               familyNotes: ["芝マイル向きの持続力を示す。"]
             },
             pastPerformances: [
@@ -94,6 +97,9 @@ describe("extractRaceFromSnapshot", () => {
             sire: "フィクションキング",
             dam: "シラユキメモリー",
             damSire: "マイルクラフト",
+            sireLine: "フィクション系",
+            damSireLine: "マイル系",
+            femaleFamily: "FNo.[7-f]",
             familyNotes: ["芝マイル向きの持続力を示す。"]
           },
           pastPerformances: [
@@ -170,6 +176,9 @@ describe("extractRaceFromSnapshot", () => {
             sire: "",
             dam: "",
             damSire: "",
+            sireLine: "",
+            damSireLine: "",
+            femaleFamily: "",
             familyNotes: []
           },
           pastPerformances: []
@@ -191,6 +200,86 @@ describe("extractRaceFromSnapshot", () => {
       pedigree: { familyNotes: [] },
       pastPerformances: []
     });
+  });
+
+  test("timeoutMsを指定した場合はCodex runtimeへAbortSignalを渡せる", async () => {
+    // Arrange
+    const snapshot = createSnapshot();
+    let actualSignal: AbortSignal | undefined;
+    const runtime = createRuntime({
+      id: "fixture-aoba-mile-2026",
+      name: "青葉架空マイル",
+      racecourse: "東京",
+      startTime: null,
+      surface: "turf",
+      distanceMeters: 1600,
+      direction: null,
+      horses: [
+        {
+          id: "fixture-horse-001",
+          name: "シラユキコード",
+          horseNumber: 1,
+          sex: null,
+          age: null,
+          jockey: "架空 太郎",
+          trainer: null,
+          bodyWeightKg: null,
+          bodyWeightDiffKg: null,
+          odds: null,
+          popularity: null,
+          pedigree: {
+            sire: "",
+            dam: "",
+            damSire: "",
+            sireLine: "",
+            damSireLine: "",
+            femaleFamily: "",
+            familyNotes: []
+          },
+          pastPerformances: []
+        }
+      ]
+    });
+    const spyRuntime: CodexJsonRuntime = {
+      generateJson: async (request) => {
+        actualSignal = request.signal;
+        return await runtime.generateJson(request);
+      }
+    };
+
+    // Act
+    await extractRaceFromSnapshot({
+      snapshot,
+      timeoutMs: 1_000,
+      runtime: spyRuntime
+    });
+
+    // Assert
+    expect(actualSignal).toBeInstanceOf(AbortSignal);
+    expect(actualSignal?.aborted).toBe(false);
+  });
+
+  test("Codex runtimeが返らない場合はtimeoutMsで失敗する", async () => {
+    // Arrange
+    const snapshot = createSnapshot();
+    let actualSignal: AbortSignal | undefined;
+    const runtime: CodexJsonRuntime = {
+      generateJson: (request) => {
+        actualSignal = request.signal;
+        return new Promise(() => {});
+      }
+    };
+
+    // Act
+    const actual = extractRaceFromSnapshot({
+      snapshot,
+      timeoutMs: 10,
+      runtime
+    });
+
+    // Assert
+    await expect(actual).rejects.toThrow("1 秒以内に完了しませんでした");
+    expect(actualSignal?.aborted).toBe(true);
   });
 });
 
@@ -232,6 +321,20 @@ const createSnapshot = (): RaceSourceSnapshot => {
         pageTitle: "シラユキコード",
         visibleText:
           "シラユキコード\n父 フィクションキング\n母 シラユキメモリー\n2026-04-12 架空トライアル 1着"
+      }
+    ],
+    pedigreePages: [
+      {
+        horseId: "fixture-horse-001",
+        horseName: "シラユキコード",
+        relation: "horse",
+        page: {
+          ...racePage,
+          sourceUrl: "https://example.test/horse/ped/fixture-horse-001",
+          pageTitle: "シラユキコード 血統",
+          visibleText:
+            "5代血統表\nフィクションキング\nフィクション系\nシラユキメモリー\nFNo.[7-f]\nマイルクラフト\nマイル系"
+        }
       }
     ]
   };
