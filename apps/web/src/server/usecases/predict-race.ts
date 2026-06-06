@@ -160,6 +160,9 @@ const buildCollectRaceSnapshotInput = (
   if (input.horseDetailLimit !== undefined) {
     collectInput.horseDetailLimit = input.horseDetailLimit;
   }
+  if (input.signal !== undefined) {
+    collectInput.signal = input.signal;
+  }
 
   return collectInput;
 };

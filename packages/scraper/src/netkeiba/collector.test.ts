@@ -128,6 +128,71 @@ describe("collectRaceSnapshotFromNetkeiba", () => {
     expect(mocks.waitForNextPage).toHaveBeenNthCalledWith(3, { minDelayMs: 15_000 });
   });
 
+  test("中止signalをページ間待機へ渡す", async () => {
+    // Arrange
+    setupSourcePageSnapshots(1);
+    const abortController = new AbortController();
+
+    // Act
+    await collectRaceSnapshotFromNetkeiba({
+      raceUrl,
+      minDelayMs: 1,
+      signal: abortController.signal
+    });
+
+    // Assert
+    expect(mocks.waitForNextPage).toHaveBeenNthCalledWith(1, {
+      minDelayMs: 1,
+      signal: abortController.signal
+    });
+    expect(mocks.waitForNextPage).toHaveBeenNthCalledWith(2, {
+      minDelayMs: 1,
+      signal: abortController.signal
+    });
+    expect(mocks.waitForNextPage).toHaveBeenNthCalledWith(3, {
+      minDelayMs: 1,
+      signal: abortController.signal
+    });
+  });
+
+  test("中止済みsignalならブラウザ起動前に停止する", async () => {
+    // Arrange
+    const abortController = new AbortController();
+    abortController.abort();
+
+    // Act
+    const actual = collectRaceSnapshotFromNetkeiba({
+      raceUrl,
+      minDelayMs: 1,
+      signal: abortController.signal
+    });
+
+    // Assert
+    await expect(actual).rejects.toThrow("netKeiba の取得を中止しました。");
+    expect(mocks.createBrowserSession).not.toHaveBeenCalled();
+  });
+
+  test("待機中に中止されたらブラウザを閉じて停止する", async () => {
+    // Arrange
+    setupSourcePageSnapshots(1);
+    const abortController = new AbortController();
+    mocks.waitForNextPage.mockImplementationOnce(async () => {
+      abortController.abort();
+      throw new Error("待機を中断しました。");
+    });
+
+    // Act
+    const actual = collectRaceSnapshotFromNetkeiba({
+      raceUrl,
+      minDelayMs: 1,
+      signal: abortController.signal
+    });
+
+    // Assert
+    await expect(actual).rejects.toThrow("netKeiba の取得を中止しました。");
+    expect(mocks.close).toHaveBeenCalledOnce();
+  });
+
   test("上限が0なら馬詳細ページと血統ページを取得しない", async () => {
     // Arrange
     setupSourcePageSnapshots(20);

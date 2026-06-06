@@ -85,7 +85,8 @@ describe("createPredictRaceUseCase", () => {
     expect(actual).toEqual({ raceId: race.id });
     expect(actualCollectInput).toEqual({
       raceUrl,
-      headless: true
+      headless: true,
+      signal: abortController.signal
     });
     expect(actualExtractInput).toEqual({
       snapshot,
