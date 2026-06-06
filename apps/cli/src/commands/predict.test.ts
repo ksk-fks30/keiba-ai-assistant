@@ -223,7 +223,8 @@ const createSnapshot = (): RaceSourceSnapshot => {
         sourceUrl: "https://example.test/horse/fixture-horse-001",
         pageTitle: "シラユキコード"
       }
-    ]
+    ],
+    pedigreePages: []
   };
 };
 

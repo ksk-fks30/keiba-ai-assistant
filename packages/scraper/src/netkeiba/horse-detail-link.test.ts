@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
+  buildHorsePedigreeHref,
   findHorseDetailLinks,
-  normalizeHorseDetailHref
+  normalizeHorseDetailHref,
+  readHorseIdFromDetailHref
 } from "@keiba-ai-assistant/scraper/netkeiba/horse-detail-link";
 import type { SourcePageSnapshot } from "@keiba-ai-assistant/models";
 
@@ -29,6 +31,17 @@ describe("normalizeHorseDetailHref", () => {
     expect(actual).toBe("https://db.netkeiba.com/horse/2023103687/");
   });
 
+  test("英字を含む馬IDの馬詳細リンクを正規化できる", () => {
+    // Arrange
+    const href = "https://db.netkeiba.com/horse/000a01ba51/?from=ped";
+
+    // Act
+    const actual = normalizeHorseDetailHref(href);
+
+    // Assert
+    expect(actual).toBe("https://db.netkeiba.com/horse/000a01ba51/");
+  });
+
   test("馬IDを持たないリンクは馬詳細リンクとして扱わない", () => {
     // Arrange
     const href = "https://race.netkeiba.com/race/shutuba.html?race_id=202605021211";
@@ -38,6 +51,32 @@ describe("normalizeHorseDetailHref", () => {
 
     // Assert
     expect(actual).toBeNull();
+  });
+});
+
+describe("buildHorsePedigreeHref", () => {
+  test("馬詳細リンクから血統ページURLを作れる", () => {
+    // Arrange
+    const href = "https://db.netkeiba.com/horse/000a01ba51/";
+
+    // Act
+    const actual = buildHorsePedigreeHref(href);
+
+    // Assert
+    expect(actual).toBe("https://db.netkeiba.com/horse/ped/000a01ba51/");
+  });
+});
+
+describe("readHorseIdFromDetailHref", () => {
+  test("馬詳細リンクから馬IDを読み取れる", () => {
+    // Arrange
+    const href = "https://db.netkeiba.com/horse/000a01ba51/";
+
+    // Act
+    const actual = readHorseIdFromDetailHref(href);
+
+    // Assert
+    expect(actual).toBe("000a01ba51");
   });
 });
 

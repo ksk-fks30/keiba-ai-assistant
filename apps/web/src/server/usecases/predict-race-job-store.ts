@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { PredictRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/predict-race";
 
 /** レース解析ジョブの状態。 */
-export type PredictRaceJobStatus = "queued" | "running" | "succeeded" | "failed";
+export type PredictRaceJobStatus = "queued" | "running" | "cancelling" | "succeeded" | "failed";
 
 /** 画面へ返すレース解析ジョブの状態snapshot。 */
 export interface PredictRaceJobSnapshot {
@@ -34,6 +34,8 @@ export interface PredictRaceJobStore {
   start: (input: StartPredictRaceJobInput) => PredictRaceJobSnapshot;
   /** 指定IDのジョブ状態を返す。存在しない場合はnull。 */
   findById: (jobId: string) => PredictRaceJobSnapshot | null;
+  /** 指定IDの実行中ジョブへ中止要求を送り、実処理が止まるまで active 扱いで保持する。 */
+  abort: (jobId: string) => PredictRaceJobSnapshot | null;
 }
 
 /** 実行中ジョブがあるため新規ジョブを開始できないことを表すError。 */
@@ -60,11 +62,13 @@ interface PredictRaceJobRecord {
   messages: string[];
   createdAt: string;
   updatedAt: string;
+  abortController: AbortController;
   raceId?: string;
   error?: string;
 }
 
 const defaultMaxMessages = 200;
+const abortedJobMessage = "レース解析ジョブを中止しました。";
 
 /** unknownが実行中ジョブによる開始拒否Errorかどうかを判定する。 */
 export const isPredictRaceJobAlreadyRunningError = (
@@ -98,7 +102,8 @@ export const createPredictRaceJobStore = (
         status: "queued",
         messages: [],
         createdAt: timestamp,
-        updatedAt: timestamp
+        updatedAt: timestamp,
+        abortController: new AbortController()
       };
       jobs.set(job.id, job);
       appendMessage(job, "レース解析ジョブを作成しました。", now, maxMessages);
@@ -121,6 +126,26 @@ export const createPredictRaceJobStore = (
       if (job === undefined) {
         return null;
       }
+
+      return toSnapshot(job);
+    },
+    abort: (jobId) => {
+      const job = jobs.get(jobId);
+      if (job === undefined) {
+        return null;
+      }
+      if (!isPredictRaceJobAbortable(job)) {
+        return toSnapshot(job);
+      }
+
+      job.abortController.abort();
+      updateJobStatus(job, "cancelling", now);
+      appendMessage(
+        job,
+        "レース解析ジョブを中止しています。実行中の処理が止まるまで待機します。",
+        now,
+        maxMessages
+      );
 
       return toSnapshot(job);
     }
@@ -151,10 +176,23 @@ const runJob = async (input: {
   try {
     const result = await input.predictRaceUseCase({
       raceUrl: input.input.raceUrl,
+      signal: input.job.abortController.signal,
       onProgress: (message) => {
+        if (!isPredictRaceJobActive(input.job) || input.job.abortController.signal.aborted) {
+          return;
+        }
+
         appendMessage(input.job, message, input.now, input.maxMessages);
       }
     });
+    if (input.job.abortController.signal.aborted) {
+      finishAbortedJob(input.job, input.now, input.maxMessages);
+      return;
+    }
+    if (!isPredictRaceJobActive(input.job)) {
+      return;
+    }
+
     input.job.raceId = result.raceId;
     updateJobStatus(input.job, "succeeded", input.now);
     appendMessage(
@@ -164,6 +202,14 @@ const runJob = async (input: {
       input.maxMessages
     );
   } catch (error) {
+    if (input.job.abortController.signal.aborted) {
+      finishAbortedJob(input.job, input.now, input.maxMessages);
+      return;
+    }
+    if (!isPredictRaceJobActive(input.job)) {
+      return;
+    }
+
     const message = readErrorMessage(error);
     input.job.error = message;
     updateJobStatus(input.job, "failed", input.now);
@@ -173,7 +219,23 @@ const runJob = async (input: {
 
 /** ジョブ状態が新規開始を止めるべき実行中状態かどうかを返す。 */
 const isPredictRaceJobActive = (job: Pick<PredictRaceJobRecord, "status">): boolean => {
+  return job.status === "queued" || job.status === "running" || job.status === "cancelling";
+};
+
+/** ジョブ状態が中止要求を受け付けられる状態かどうかを返す。 */
+const isPredictRaceJobAbortable = (job: Pick<PredictRaceJobRecord, "status">): boolean => {
   return job.status === "queued" || job.status === "running";
+};
+
+/** 中止要求済みジョブの実処理終了を記録し、新しいジョブを開始可能にする。 */
+const finishAbortedJob = (
+  job: PredictRaceJobRecord,
+  now: () => Date,
+  maxMessages: number
+): void => {
+  job.error = abortedJobMessage;
+  updateJobStatus(job, "failed", now);
+  appendMessage(job, abortedJobMessage, now, maxMessages);
 };
 
 /** ジョブ状態を更新し、更新日時も同時に進める。 */
@@ -244,6 +306,7 @@ const isPredictRaceJobSnapshot = (value: unknown): value is PredictRaceJobSnapsh
     "status" in value &&
     (value.status === "queued" ||
       value.status === "running" ||
+      value.status === "cancelling" ||
       value.status === "succeeded" ||
       value.status === "failed") &&
     "messages" in value &&

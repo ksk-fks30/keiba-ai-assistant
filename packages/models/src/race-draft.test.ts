@@ -29,6 +29,9 @@ describe("parseRaceDraft", () => {
             sire: "フィクションキング",
             dam: "シラユキメモリー",
             damSire: "マイルクラフト",
+            sireLine: "フィクション系",
+            damSireLine: "マイル系",
+            femaleFamily: "FNo.[7-f]",
             familyNotes: []
           },
           pastPerformances: []

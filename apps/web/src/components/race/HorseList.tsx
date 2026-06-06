@@ -107,6 +107,7 @@ const HorseDetail = ({ horse }: { horse: HorseDashboardView }) => {
         <HorseFact label="馬体重" value={horse.bodyWeightLabel} />
         <HorseFact label="血統" value={horse.pedigreeLabel} wide />
       </dl>
+      <PedigreeLineage items={horse.pedigreeLineageItems} />
       <PedigreeNotes notes={horse.pedigreeNotes} />
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-left text-xs">
@@ -130,6 +131,27 @@ const HorseDetail = ({ horse }: { horse: HorseDashboardView }) => {
         </table>
       </div>
     </article>
+  );
+};
+
+/** 血統ページから取得した父系・母父系・牝系を小さなタグとして表示する。 */
+const PedigreeLineage = ({ items }: { items: HorseDashboardView["pedigreeLineageItems"] }) => {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <dl className="mt-3 flex flex-wrap gap-2">
+      {items.map((item) => (
+        <div
+          key={`${item.label}-${item.value}`}
+          className="rounded-md border border-app-border-soft bg-app-muted px-2.5 py-1.5"
+        >
+          <dt className="text-[11px] font-semibold text-app-subtle">{item.label}</dt>
+          <dd className="mt-0.5 text-xs font-semibold text-app-text">{item.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 };
 

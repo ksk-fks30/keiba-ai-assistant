@@ -41,6 +41,11 @@ describe("useRaceDashboardView", () => {
           popularity: 2,
           popularityLabel: "2",
           pedigreeLabel: "父 ミドリノカゼ / 母 ライトステップ / 母父 サンプルスター",
+          pedigreeLineageItems: [
+            { label: "父系", value: "ミドリ系" },
+            { label: "母父系", value: "サンプル系" },
+            { label: "牝系", value: "FNo.[1-a]" }
+          ],
           pastPerformances: expect.arrayContaining([
             expect.objectContaining({
               dateLabel: "26/05/10",

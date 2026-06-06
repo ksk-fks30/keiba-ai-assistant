@@ -34,6 +34,9 @@
         "sire": "ミドリノカゼ",
         "dam": "ライトステップ",
         "damSire": "サンプルスター",
+        "sireLine": "ミドリ系",
+        "damSireLine": "サンプル系",
+        "femaleFamily": "FNo.[1-a]",
         "familyNotes": ["芝マイル向きの持続力を想定した架空血統"]
       },
       "pastPerformances": [
@@ -90,6 +93,9 @@
         "sire": "ブルームーン",
         "dam": "カスミノウタ",
         "damSire": "フィクションロード",
+        "sireLine": "ブルー系",
+        "damSireLine": "フィクション系",
+        "femaleFamily": "FNo.[2-b]",
         "familyNotes": ["軽い芝で末脚を活かす想定の架空血統"]
       },
       "pastPerformances": [
@@ -146,6 +152,9 @@
         "sire": "コードブレイカー",
         "dam": "スノウライン",
         "damSire": "アサノヒカリ",
+        "sireLine": "コード系",
+        "damSireLine": "ヒカリ系",
+        "femaleFamily": "FNo.[3-c]",
         "familyNotes": ["瞬発力と成長余地を想定した架空血統"]
       },
       "pastPerformances": [
@@ -202,6 +211,9 @@
         "sire": "アンカーボルト",
         "dam": "ハーバーソング",
         "damSire": "ノースフィクション",
+        "sireLine": "アンカー系",
+        "damSireLine": "ノース系",
+        "femaleFamily": "FNo.[4-d]",
         "familyNotes": ["持久力寄りで時計がかかる馬場を想定した架空血統"]
       },
       "pastPerformances": [
@@ -258,6 +270,9 @@
         "sire": "パレットキング",
         "dam": "ハルノリズム",
         "damSire": "サクラフィクサー",
+        "sireLine": "パレット系",
+        "damSireLine": "サクラ系",
+        "femaleFamily": "FNo.[5-e]",
         "familyNotes": ["器用さと先行力を想定した架空血統"]
       },
       "pastPerformances": [

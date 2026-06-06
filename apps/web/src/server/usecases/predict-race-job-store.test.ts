@@ -96,6 +96,79 @@ describe("createPredictRaceJobStore", () => {
     runningJobGate.resolve();
     await waitForJobStatus(store, firstJob.id, "succeeded");
   });
+
+  test("中止要求後も実処理終了まで新しいジョブを開始しない", async () => {
+    // Arrange
+    const runningJobGate = createDeferred<void>();
+    const actualSignals: AbortSignal[] = [];
+    const startedRaceUrls: string[] = [];
+    const store = createPredictRaceJobStore({
+      predictRaceUseCase: async (input) => {
+        startedRaceUrls.push(input.raceUrl);
+        if (input.signal !== undefined) {
+          actualSignals.push(input.signal);
+        }
+        await runningJobGate.promise;
+        input.onProgress?.("中止後の進捗です。");
+        return { raceId: "fixture-race" };
+      },
+      createJobId: createSequentialJobId(),
+      now: createFixedNow()
+    });
+    const firstJob = store.start({
+      raceUrl: "https://race.netkeiba.com/race?race_id=fixture-first"
+    });
+
+    // Act
+    const aborted = store.abort(firstJob.id);
+    let startWhileCancellingError: unknown;
+    try {
+      store.start({
+        raceUrl: "https://race.netkeiba.com/race?race_id=fixture-second"
+      });
+    } catch (error) {
+      startWhileCancellingError = error;
+    }
+    runningJobGate.resolve();
+    const completedFirstJob = await waitForJobStatus(store, firstJob.id, "failed");
+    const secondJob = store.start({
+      raceUrl: "https://race.netkeiba.com/race?race_id=fixture-second"
+    });
+    const completedSecondJob = await waitForJobStatus(store, secondJob.id, "succeeded");
+
+    // Assert
+    expect(aborted).toMatchObject({
+      id: firstJob.id,
+      status: "cancelling"
+    });
+    expect(startWhileCancellingError).toBeInstanceOf(Error);
+    expect((startWhileCancellingError as Error).message).toBe("別のレース解析ジョブが実行中です。");
+    expect(completedFirstJob).toMatchObject({
+      id: firstJob.id,
+      status: "failed",
+      error: "レース解析ジョブを中止しました。"
+    });
+    expect(store.findById(firstJob.id)).toMatchObject({
+      id: firstJob.id,
+      status: "failed",
+      messages: [
+        "レース解析ジョブを作成しました。",
+        "レース解析を開始しています。",
+        "レース解析ジョブを中止しています。実行中の処理が止まるまで待機します。",
+        "レース解析ジョブを中止しました。"
+      ]
+    });
+    expect(completedSecondJob).toMatchObject({
+      id: secondJob.id,
+      status: "succeeded"
+    });
+    expect(actualSignals[0]?.aborted).toBe(true);
+    expect(startedRaceUrls).toEqual([
+      "https://race.netkeiba.com/race?race_id=fixture-first",
+      "https://race.netkeiba.com/race?race_id=fixture-second"
+    ]);
+    expect(store.findById("missing-job")).toBeNull();
+  });
 });
 
 /** ジョブテスト用に固定日時を返す関数を作る。 */

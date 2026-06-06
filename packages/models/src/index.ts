@@ -12,6 +12,7 @@ export * from "@keiba-ai-assistant/models/race-draft-horse";
 export * from "@keiba-ai-assistant/models/race-draft-past-performance";
 export * from "@keiba-ai-assistant/models/race-draft-pedigree";
 export * from "@keiba-ai-assistant/models/race-draft";
+export * from "@keiba-ai-assistant/models/race-source-pedigree-page";
 export * from "@keiba-ai-assistant/models/race-source-snapshot";
 export * from "@keiba-ai-assistant/models/race";
 export * from "@keiba-ai-assistant/models/race-surface";

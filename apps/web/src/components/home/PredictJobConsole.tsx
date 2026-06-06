@@ -42,6 +42,7 @@ const formatJobStatus = (status: PredictRaceJobSnapshot["status"] | undefined): 
   const labels = {
     queued: "queued",
     running: "running",
+    cancelling: "cancelling",
     succeeded: "done",
     failed: "failed"
   } as const;

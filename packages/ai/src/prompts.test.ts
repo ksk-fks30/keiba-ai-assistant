@@ -31,6 +31,19 @@ describe("buildRaceExtractionPrompt", () => {
           pageTitle: "シラユキコード",
           visibleText: "シラユキコード\n父 フィクションキング\n2026-04-12 架空トライアル"
         }
+      ],
+      pedigreePages: [
+        {
+          horseId: "fixture-horse-001",
+          horseName: "シラユキコード",
+          relation: "horse" as const,
+          page: {
+            ...racePage,
+            sourceUrl: "https://example.test/horse/ped/fixture-horse-001",
+            pageTitle: "シラユキコード 血統",
+            visibleText: "フィクションキング\nフィクション系\nFNo.[7-f]"
+          }
+        }
       ]
     };
 
@@ -54,11 +67,94 @@ describe("buildRaceExtractionPrompt", () => {
     expect(actual).toContain("popularity");
     expect(actual).toContain("pastPerformances");
     expect(actual).toContain("pedigree");
+    expect(actual).toContain("sireLine");
+    expect(actual).toContain("damSireLine");
+    expect(actual).toContain("femaleFamily");
+    expect(actual).toContain("FNo.");
+    expect(actual).toContain("過大評価");
     expect(actual).toContain("予想判断に使える血統上の補足");
     expect(actual).toContain("距離適性");
     expect(actual).toContain("○○の2025");
     expect(actual).toContain("空配列");
     expect(actual).toContain("青葉架空マイル");
+  });
+
+  test("全頭分のsnapshotを残したまま構造化用プロンプトを軽量化する", () => {
+    // Arrange
+    const racePage = {
+      sourceUrl: "https://example.test/race?race_id=fixture-aoba-mile-2026",
+      pageTitle: "青葉架空マイル",
+      visibleText: "青葉架空マイル\n東京 芝1600m",
+      headings: ["青葉架空マイル"],
+      tableTexts: ["馬番 馬名 騎手\n1 シラユキコード 架空太郎"],
+      links: [
+        {
+          text: "シラユキコード",
+          href: "https://example.test/horse/fixture-horse-001/"
+        },
+        {
+          text: "削除対象リンク",
+          href: "https://example.test/news/fixture"
+        }
+      ],
+      capturedAt: "2026-05-31T10:30:00.000Z"
+    };
+    const snapshot = {
+      racePage,
+      horseDetailPages: [
+        {
+          ...racePage,
+          sourceUrl: "https://example.test/horse/fixture-horse-001/",
+          pageTitle: "シラユキコード",
+          visibleText: `馬詳細先頭\n${"A".repeat(5_000)}\n馬詳細末尾`,
+          links: [{ text: "馬詳細内リンク", href: "https://example.test/horse/other/" }]
+        },
+        {
+          ...racePage,
+          sourceUrl: "https://example.test/horse/fixture-horse-002/",
+          pageTitle: "アオゾラコード",
+          visibleText: "アオゾラコード\n2026-04-12 架空トライアル"
+        }
+      ],
+      pedigreePages: [
+        {
+          horseId: "fixture-horse-001",
+          horseName: "シラユキコード",
+          relation: "horse" as const,
+          page: {
+            ...racePage,
+            sourceUrl: "https://example.test/horse/ped/fixture-horse-001/",
+            pageTitle: "シラユキコード 血統",
+            visibleText: `フィクション系\n${"B".repeat(3_000)}\n血統末尾`
+          }
+        },
+        {
+          horseId: "fixture-horse-002",
+          horseName: "アオゾラコード",
+          relation: "horse" as const,
+          page: {
+            ...racePage,
+            sourceUrl: "https://example.test/horse/ped/fixture-horse-002/",
+            pageTitle: "アオゾラコード 血統",
+            visibleText: "マイル系\nFNo.[7-f]"
+          }
+        }
+      ]
+    };
+
+    // Act
+    const actual = buildRaceExtractionPrompt({ snapshot });
+
+    // Assert
+    expect(actual).toContain("シラユキコード");
+    expect(actual).toContain("アオゾラコード");
+    expect(actual).toContain("馬詳細先頭");
+    expect(actual).toContain("フィクション系");
+    expect(actual).toContain("[truncated]");
+    expect(actual).not.toContain("馬詳細末尾");
+    expect(actual).not.toContain("血統末尾");
+    expect(actual).not.toContain("削除対象リンク");
+    expect(actual).not.toContain("馬詳細内リンク");
   });
 });
 

@@ -11,7 +11,7 @@ import {
 
 /** レース取得プロンプトの組み立てに必要な入力。 */
 export interface RaceExtractionPromptInput {
-  /** ブラウザ操作で取得した、レースページと馬詳細ページの軽量snapshot。 */
+  /** ブラウザ操作で取得した、レースページ、馬詳細ページ、血統ページの軽量snapshot。 */
   snapshot: RaceSourceSnapshot;
 }
 
@@ -37,8 +37,25 @@ export interface RaceQuestionPromptInput {
   question: string;
 }
 
+interface SourcePageCompactionOptions {
+  /** 可視テキストの最大文字数。 */
+  visibleTextLimit: number;
+  /** 表テキスト1件あたりの最大文字数。 */
+  tableTextLimit: number;
+  /** プロンプトへ含める表の最大件数。 */
+  tableLimit: number;
+  /** プロンプトへ含める見出しの最大件数。 */
+  headingLimit: number;
+  /** プロンプトへ含めるリンクの最大件数。 */
+  linkLimit: number;
+  /** リンクを用途に応じて絞り込む関数。 */
+  linkFilter?: ((link: RaceSourceSnapshot["racePage"]["links"][number]) => boolean) | undefined;
+}
+
 /** ページsnapshotを、Codex がレース取得下書きJSONを返すためのプロンプトへ変換する。 */
 export const buildRaceExtractionPrompt = (input: RaceExtractionPromptInput): string => {
+  const promptSnapshot = buildRaceExtractionPromptSnapshot(input.snapshot);
+
   return [
     "あなたは競馬データ構造化アシスタントです。",
     // AIには抽出済みsnapshotの解釈だけを任せ、追加取得や自由巡回をさせない。
@@ -58,15 +75,87 @@ export const buildRaceExtractionPrompt = (input: RaceExtractionPromptInput): str
     "sex, age はレースページの出走表にある性齢から読み取ってください。sex は牡, 牝, セなどの性別表記、age は年齢の整数にし、不明な場合は null にしてください。",
     "trainer はレースページの出走表にある調教師または厩舎欄から読み取ってください。不明な場合は null にしてください。",
     "bodyWeightKg, bodyWeightDiffKg, odds, popularity はレースページの出走表から読み取ってください。不明な場合は null にしてください。",
-    "pedigree は馬詳細ページから sire, dam, damSire, familyNotes を読み取ってください。不明な文字列項目は空文字にしてください。",
+    "pedigree は馬詳細ページと血統ページから sire, dam, damSire, sireLine, damSireLine, femaleFamily, familyNotes を読み取ってください。不明な文字列項目は空文字にしてください。",
+    "sireLine は対象馬の血統ページに表示される父の「○○系」を、damSireLine は母父または血統ページ上で明示される母父側の「○○系」を入れてください。",
+    "femaleFamily は血統ページに表示される FNo. または FNo.[11-d] のような牝系番号を入れてください。",
+    "sireLine, damSireLine, femaleFamily は血統ページsnapshot内の明示テキストだけから読み取り、系統名や牝系番号を推測で補完しないでください。",
+    "femaleFamily は母系の識別子として扱い、番号だけを過大評価した予想判断はしないでください。",
     "familyNotes は予想判断に使える血統上の補足だけを、1件1文の日本語で入れてください。距離適性、馬場適性、脚質、成長力、近親の実績などの評価材料になる内容だけを対象にしてください。",
     "familyNotes には単なる識別情報、母名の再掲、ページ見出し、馬名由来、セール情報、募集情報、「○○の2025」のような生年付きの産駒表記だけの文は含めないでください。予想判断に使える補足がなければ空配列にしてください。",
     "pastPerformances は馬詳細ページから直近5走までを新しい順に読み取ってください。不明な数値項目は null、不明な文字列項目は空文字、surface は turf, dirt, jump, unknown のいずれかにしてください。",
     "必須項目はsnapshot内の明示テキストだけから読み取り、根拠のない推測で埋めないでください。",
     "",
     "ページsnapshot:",
-    JSON.stringify(input.snapshot, null, 2)
+    JSON.stringify(promptSnapshot, null, 2)
   ].join("\n");
+};
+
+/** AI構造化へ渡すsnapshotを、全頭分のページ対応は保ったまま軽量化する。 */
+const buildRaceExtractionPromptSnapshot = (snapshot: RaceSourceSnapshot): RaceSourceSnapshot => {
+  return {
+    racePage: compactSourcePageSnapshot(snapshot.racePage, {
+      visibleTextLimit: 12_000,
+      tableTextLimit: 3_500,
+      tableLimit: 8,
+      headingLimit: 8,
+      linkLimit: 40,
+      linkFilter: isHorseDetailLink
+    }),
+    horseDetailPages: snapshot.horseDetailPages.map((page) =>
+      compactSourcePageSnapshot(page, {
+        visibleTextLimit: 4_500,
+        tableTextLimit: 2_200,
+        tableLimit: 6,
+        headingLimit: 5,
+        linkLimit: 0
+      })
+    ),
+    pedigreePages: snapshot.pedigreePages.map((pedigreePage) => ({
+      ...pedigreePage,
+      page: compactSourcePageSnapshot(pedigreePage.page, {
+        visibleTextLimit: 2_500,
+        tableTextLimit: 2_500,
+        tableLimit: 3,
+        headingLimit: 4,
+        linkLimit: 0
+      })
+    }))
+  };
+};
+
+/** ページ単位のsnapshotから、構造化に使う本文・表・見出しだけを残す。 */
+const compactSourcePageSnapshot = (
+  page: RaceSourceSnapshot["racePage"],
+  options: SourcePageCompactionOptions
+): RaceSourceSnapshot["racePage"] => {
+  const filteredLinks =
+    options.linkFilter === undefined ? page.links : page.links.filter(options.linkFilter);
+
+  return {
+    ...page,
+    visibleText: truncateText(page.visibleText, options.visibleTextLimit),
+    headings: page.headings
+      .slice(0, options.headingLimit)
+      .map((heading) => truncateText(heading, 160)),
+    tableTexts: page.tableTexts
+      .slice(0, options.tableLimit)
+      .map((text) => truncateText(text, options.tableTextLimit)),
+    links: filteredLinks.slice(0, options.linkLimit)
+  };
+};
+
+/** レースページから出走馬IDを拾うために必要な馬詳細リンクかどうかを判定する。 */
+const isHorseDetailLink = (link: RaceSourceSnapshot["racePage"]["links"][number]): boolean => {
+  return /\/horse\/[0-9A-Za-z]+\//.test(link.href) && !/\/horse\/ped\//.test(link.href);
+};
+
+/** 長すぎるテキストを、切り詰めたことが分かる形で短縮する。 */
+const truncateText = (value: string, limit: number): string => {
+  if (value.length <= limit) {
+    return value;
+  }
+
+  return `${value.slice(0, limit)}\n[truncated]`;
 };
 
 /** 予想方針とレースデータを、Codex が予想下書きJSONを返すためのプロンプトへ変換する。 */

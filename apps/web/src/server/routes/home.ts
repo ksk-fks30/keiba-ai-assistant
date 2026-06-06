@@ -51,6 +51,15 @@ export const createHomeRoutes = (dependencies: HomeRoutesDependencies): Hono => 
     return c.json(job);
   });
 
+  homeRoutes.delete("/races/predict-jobs/:jobId", (c) => {
+    const job = dependencies.predictRaceJobStore.abort(c.req.param("jobId"));
+    if (job === null) {
+      return c.json({ error: "レース解析ジョブが見つかりません。" }, 404);
+    }
+
+    return c.json(job);
+  });
+
   return homeRoutes;
 };
 

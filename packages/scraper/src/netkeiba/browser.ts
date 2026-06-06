@@ -6,6 +6,8 @@ export interface BrowserSessionOptions {
   headless?: boolean;
 }
 
+const blockedResourceTypes = new Set(["image", "media", "font"]);
+
 /** Playwright の browser/context/page と終了処理をまとめたセッション。 */
 export interface BrowserSession {
   /** 起動した Chromium browser。 */
@@ -24,6 +26,15 @@ export const createBrowserSession = async (
 ): Promise<BrowserSession> => {
   const browser = await launchChromium(options);
   const context = await browser.newContext();
+  await context.route("**/*", async (route) => {
+    // 解析に不要な重い静的リソースだけを止め、HTML/JS/XHR は通常通り取得する。
+    if (blockedResourceTypes.has(route.request().resourceType())) {
+      await route.abort();
+      return;
+    }
+
+    await route.continue();
+  });
   const page = await context.newPage();
 
   return {

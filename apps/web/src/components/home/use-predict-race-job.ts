@@ -13,8 +13,16 @@ export interface UsePredictRaceJobResult {
   canSubmit: boolean;
   /** ジョブ作成リクエスト中かどうか。 */
   isStartingJob: boolean;
+  /** ジョブ中止リクエスト中かどうか。 */
+  isAbortingJob: boolean;
   /** ジョブが実行中かどうか。 */
   isJobActive: boolean;
+  /** ジョブが中止処理中かどうか。 */
+  isJobCancelling: boolean;
+  /** ジョブを中止できる状態かどうか。 */
+  canAbort: boolean;
+  /** 実行中ジョブの経過時間表示。 */
+  activeJobElapsedTimeLabel: string | null;
   /** 現在追跡しているジョブのsnapshot。 */
   activeJob: PredictRaceJobSnapshot | null;
   /** クライアント側に表示するエラーメッセージ。 */
@@ -23,6 +31,8 @@ export interface UsePredictRaceJobResult {
   toast: PredictToast | null;
   /** レース解析ジョブを開始する。 */
   start: () => Promise<void>;
+  /** 実行中のレース解析ジョブを中止する。 */
+  abort: () => Promise<void>;
   /** toastを閉じる。 */
   closeToast: () => void;
 }
@@ -31,13 +41,22 @@ export interface UsePredictRaceJobResult {
 export const usePredictRaceJob = (): UsePredictRaceJobResult => {
   const [raceUrl, setRaceUrl] = useState("");
   const [isStartingJob, setIsStartingJob] = useState(false);
+  const [isAbortingJob, setIsAbortingJob] = useState(false);
   const [activeJob, setActiveJob] = useState<PredictRaceJobSnapshot | null>(null);
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [clientError, setClientError] = useState<string | null>(null);
   const [toast, setToast] = useState<PredictToast | null>(null);
   const notifiedJobIdsRef = useRef<Set<string>>(new Set());
   const trimmedRaceUrl = raceUrl.trim();
   const isJobActive = activeJob !== null && isPredictJobActive(activeJob);
+  const isJobCancelling = activeJob?.status === "cancelling";
   const canSubmit = trimmedRaceUrl.length > 0 && !isStartingJob && !isJobActive;
+  const canAbort = activeJob !== null && isPredictJobAbortable(activeJob) && !isAbortingJob;
+  const activeJobElapsedTimeLabel =
+    activeJob !== null && isJobActive
+      ? formatPredictJobElapsedTime(activeJob.createdAt, currentTimeMs)
+      : null;
+  const activeJobId = activeJob?.id ?? null;
 
   const start = async (): Promise<void> => {
     if (!canSubmit) {
@@ -55,6 +74,26 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
       setClientError(readErrorMessage(error));
     } finally {
       setIsStartingJob(false);
+    }
+  };
+
+  const abort = async (): Promise<void> => {
+    if (!canAbort || activeJob === null) {
+      return;
+    }
+
+    setIsAbortingJob(true);
+    setClientError(null);
+    try {
+      const job = await abortPredictJob(activeJob.id);
+      setActiveJob(job);
+      if (!isPredictJobActive(job)) {
+        clearStoredPredictJobId();
+      }
+    } catch (error) {
+      setClientError(readErrorMessage(error));
+    } finally {
+      setIsAbortingJob(false);
     }
   };
 
@@ -103,6 +142,21 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
       isCancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isJobActive) {
+      return;
+    }
+
+    setCurrentTimeMs(Date.now());
+    const intervalId = window.setInterval(() => {
+      setCurrentTimeMs(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activeJobId, isJobActive]);
 
   useEffect(() => {
     if (activeJob === null || !isPredictJobActive(activeJob)) {
@@ -173,15 +227,44 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
     setRaceUrl,
     canSubmit,
     isStartingJob,
+    isAbortingJob,
     isJobActive,
+    isJobCancelling,
+    canAbort,
+    activeJobElapsedTimeLabel,
     activeJob,
     clientError,
     toast,
     start,
+    abort,
     closeToast: () => {
       setToast(null);
     }
   };
+};
+
+/** ジョブ開始日時から現在までの経過時間を mm:ss または h:mm:ss で整形する。 */
+const formatPredictJobElapsedTime = (createdAt: string, currentTimeMs: number): string => {
+  const createdAtMs = Date.parse(createdAt);
+  if (!Number.isFinite(createdAtMs)) {
+    return "--:--";
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((currentTimeMs - createdAtMs) / 1000));
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${padElapsedTimePart(minutes)}:${padElapsedTimePart(seconds)}`;
+  }
+
+  return `${padElapsedTimePart(minutes)}:${padElapsedTimePart(seconds)}`;
+};
+
+/** 経過時間の分秒を2桁に揃える。 */
+const padElapsedTimePart = (value: number): string => {
+  return value.toString().padStart(2, "0");
 };
 
 /** レース解析ジョブを開始する。 */
@@ -205,6 +288,20 @@ const startPredictJob = async (raceUrl: string): Promise<PredictRaceJobSnapshot>
 /** レース解析ジョブの現在状態を取得する。 */
 const fetchPredictJob = async (jobId: string): Promise<PredictRaceJobSnapshot> => {
   const response = await fetch(`/races/predict-jobs/${encodeURIComponent(jobId)}`, {
+    headers: { accept: "application/json" }
+  });
+  const value = (await response.json()) as unknown;
+  if (!response.ok) {
+    throw createPredictJobRequestError(readErrorResponse(value), response.status);
+  }
+
+  return parsePredictJobSnapshot(value);
+};
+
+/** レース解析ジョブを中止する。 */
+const abortPredictJob = async (jobId: string): Promise<PredictRaceJobSnapshot> => {
+  const response = await fetch(`/races/predict-jobs/${encodeURIComponent(jobId)}`, {
+    method: "DELETE",
     headers: { accept: "application/json" }
   });
   const value = (await response.json()) as unknown;
@@ -250,12 +347,23 @@ const parsePredictJobSnapshot = (value: unknown): PredictRaceJobSnapshot => {
 
 /** ジョブ状態が実行中かどうかを返す。 */
 const isPredictJobActive = (job: PredictRaceJobSnapshot): boolean => {
+  return job.status === "queued" || job.status === "running" || job.status === "cancelling";
+};
+
+/** ジョブ状態が中止操作を受け付けられるかどうかを返す。 */
+const isPredictJobAbortable = (job: PredictRaceJobSnapshot): boolean => {
   return job.status === "queued" || job.status === "running";
 };
 
 /** unknownがPredictRaceJobStatusかどうかを判定する。 */
 const isPredictJobStatus = (value: unknown): value is PredictRaceJobSnapshot["status"] => {
-  return value === "queued" || value === "running" || value === "succeeded" || value === "failed";
+  return (
+    value === "queued" ||
+    value === "running" ||
+    value === "cancelling" ||
+    value === "succeeded" ||
+    value === "failed"
+  );
 };
 
 /** 同じタブで追跡中のレース解析ジョブIDを保存するsessionStorageキー。 */

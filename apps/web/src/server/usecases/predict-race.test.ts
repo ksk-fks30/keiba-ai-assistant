@@ -28,6 +28,7 @@ describe("createPredictRaceUseCase", () => {
     let actualAnalyzeInput: AnalyzeRaceInput | null = null;
     let savedRace: Race | null = null;
     let savedPrediction: Prediction | null = null;
+    const abortController = new AbortController();
     const predictRaceUseCase = createPredictRaceUseCase({
       runRepository: {
         ...createUnusedRunRepositoryMethods(),
@@ -73,18 +74,30 @@ describe("createPredictRaceUseCase", () => {
     });
 
     // Act
-    const actual = await predictRaceUseCase({ raceUrl: ` ${raceUrl} ` });
+    const actual = await predictRaceUseCase({
+      raceUrl: ` ${raceUrl} `,
+      extractTimeoutMs: 1_000,
+      analysisTimeoutMs: 2_000,
+      signal: abortController.signal
+    });
 
     // Assert
     expect(actual).toEqual({ raceId: race.id });
     expect(actualCollectInput).toEqual({
       raceUrl,
-      headless: true
+      headless: true,
+      signal: abortController.signal
     });
-    expect(actualExtractInput).toEqual({ snapshot });
+    expect(actualExtractInput).toEqual({
+      snapshot,
+      timeoutMs: 1_000,
+      signal: abortController.signal
+    });
     expect(actualAnalyzeInput).toEqual({
       race: raceWithWeather,
-      policy
+      policy,
+      timeoutMs: 2_000,
+      signal: abortController.signal
     });
     expect(savedRace).toEqual(raceWithWeather);
     expect(savedPrediction).toEqual(prediction);
@@ -98,6 +111,43 @@ describe("createPredictRaceUseCase", () => {
       "analyze",
       "savePrediction"
     ]);
+  });
+
+  test("Codex実行のtimeout未指定時はWeb用の既定値を渡す", async () => {
+    // Arrange
+    const race = createRaceWithoutWeather();
+    let actualExtractInput: ExtractRaceFromSnapshotInput | null = null;
+    let actualAnalyzeInput: AnalyzeRaceInput | null = null;
+    const predictRaceUseCase = createPredictRaceUseCase({
+      runRepository: {
+        ...createUnusedRunRepositoryMethods(),
+        invalidateAnalysis: async () => {},
+        saveRace: async () => {},
+        savePrediction: async () => {}
+      },
+      policyRepository: {
+        readPredictionPolicy: async () => createPredictionPolicy()
+      },
+      collectRaceSnapshot: async () => createRaceSourceSnapshot(),
+      extractRaceFromSnapshot: async (input) => {
+        actualExtractInput = input;
+        return race;
+      },
+      weatherProvider: createWeatherProvider({ weather: createWeather() }),
+      analyzeRace: async (input) => {
+        actualAnalyzeInput = input;
+        return createPrediction(race.id);
+      }
+    });
+
+    // Act
+    await predictRaceUseCase({
+      raceUrl: "https://race.netkeiba.com/race/shutuba.html?race_id=202605030211"
+    });
+
+    // Assert
+    expect(actualExtractInput).toMatchObject({ timeoutMs: 1_800_000 });
+    expect(actualAnalyzeInput).toMatchObject({ timeoutMs: 1_800_000 });
   });
 
   test("天気取得に失敗してもRace保存と分析を継続する", async () => {
