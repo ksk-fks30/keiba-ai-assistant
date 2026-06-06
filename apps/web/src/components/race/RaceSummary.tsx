@@ -24,15 +24,15 @@ export const RaceSummary = ({
   isReflectionActionLoading = false,
   onReflectionActionClick
 }: RaceSummaryProps) => {
+  const subtitleLabel = formatRaceSubtitle(race);
+
   return (
     <section className="shrink-0 rounded-panel border border-app-border bg-app-surface p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-app-subtle">{race.id}</p>
           <h1 className="mt-2 text-2xl font-bold leading-tight text-app-text">{race.name}</h1>
-          <p className="mt-2 text-sm text-app-subtle">
-            {race.racecourse} / {race.surfaceLabel} {race.distanceLabel}
-          </p>
+          <p className="mt-2 text-sm text-app-subtle">{subtitleLabel}</p>
           <WeatherLine weather={race.weather} />
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -68,6 +68,17 @@ export const RaceSummary = ({
       </div>
     </section>
   );
+};
+
+/** レース名の下に出す基本情報の短いサブタイトルを組み立てる。 */
+const formatRaceSubtitle = (race: RaceDashboardView): string => {
+  const parts = [
+    race.racecourse,
+    race.raceNumberLabel === "未取得" ? undefined : race.raceNumberLabel,
+    `${race.surfaceLabel} ${race.distanceLabel}`
+  ].filter((part): part is string => part !== undefined);
+
+  return parts.join(" / ");
 };
 
 /** レース条件の1項目を表示する小カード。 */

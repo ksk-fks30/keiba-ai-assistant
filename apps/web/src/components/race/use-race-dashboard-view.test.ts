@@ -17,6 +17,7 @@ describe("useRaceDashboardView", () => {
       name: race.name,
       sourceUrl: race.sourceUrl,
       racecourse: race.racecourse,
+      raceNumberLabel: "未取得",
       startTimeLabel: "26/06/07 15:40",
       surfaceLabel: "芝",
       distanceLabel: "1600m",
@@ -89,5 +90,19 @@ describe("useRaceDashboardView", () => {
       sourceLabel: "Open-Meteo",
       sourceUrl: source
     });
+  });
+
+  test("netKeiba形式のrace IDから第何レースかを表示できる", () => {
+    // Arrange
+    const race = parseRace({
+      ...sampleRace,
+      id: "202605030109"
+    });
+
+    // Act
+    const actual = useRaceDashboardView(race);
+
+    // Assert
+    expect(actual?.raceNumberLabel).toBe("第 9 R");
   });
 });
