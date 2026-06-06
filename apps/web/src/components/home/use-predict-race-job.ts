@@ -17,6 +17,8 @@ export interface UsePredictRaceJobResult {
   isAbortingJob: boolean;
   /** ジョブが実行中かどうか。 */
   isJobActive: boolean;
+  /** ジョブが中止処理中かどうか。 */
+  isJobCancelling: boolean;
   /** ジョブを中止できる状態かどうか。 */
   canAbort: boolean;
   /** 実行中ジョブの経過時間表示。 */
@@ -47,8 +49,9 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
   const notifiedJobIdsRef = useRef<Set<string>>(new Set());
   const trimmedRaceUrl = raceUrl.trim();
   const isJobActive = activeJob !== null && isPredictJobActive(activeJob);
+  const isJobCancelling = activeJob?.status === "cancelling";
   const canSubmit = trimmedRaceUrl.length > 0 && !isStartingJob && !isJobActive;
-  const canAbort = activeJob !== null && isPredictJobActive(activeJob) && !isAbortingJob;
+  const canAbort = activeJob !== null && isPredictJobAbortable(activeJob) && !isAbortingJob;
   const activeJobElapsedTimeLabel =
     activeJob !== null && isJobActive
       ? formatPredictJobElapsedTime(activeJob.createdAt, currentTimeMs)
@@ -226,6 +229,7 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
     isStartingJob,
     isAbortingJob,
     isJobActive,
+    isJobCancelling,
     canAbort,
     activeJobElapsedTimeLabel,
     activeJob,
@@ -343,12 +347,23 @@ const parsePredictJobSnapshot = (value: unknown): PredictRaceJobSnapshot => {
 
 /** ジョブ状態が実行中かどうかを返す。 */
 const isPredictJobActive = (job: PredictRaceJobSnapshot): boolean => {
+  return job.status === "queued" || job.status === "running" || job.status === "cancelling";
+};
+
+/** ジョブ状態が中止操作を受け付けられるかどうかを返す。 */
+const isPredictJobAbortable = (job: PredictRaceJobSnapshot): boolean => {
   return job.status === "queued" || job.status === "running";
 };
 
 /** unknownがPredictRaceJobStatusかどうかを判定する。 */
 const isPredictJobStatus = (value: unknown): value is PredictRaceJobSnapshot["status"] => {
-  return value === "queued" || value === "running" || value === "succeeded" || value === "failed";
+  return (
+    value === "queued" ||
+    value === "running" ||
+    value === "cancelling" ||
+    value === "succeeded" ||
+    value === "failed"
+  );
 };
 
 /** 同じタブで追跡中のレース解析ジョブIDを保存するsessionStorageキー。 */

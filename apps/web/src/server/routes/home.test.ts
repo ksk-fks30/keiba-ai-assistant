@@ -205,8 +205,11 @@ describe("createHomeRoutes", () => {
     // Arrange
     const job = {
       ...createPredictRaceJobSnapshot(),
-      status: "failed" as const,
-      error: "レース解析ジョブを中止しました。"
+      status: "cancelling" as const,
+      messages: [
+        "レース解析を開始しています。",
+        "レース解析ジョブを中止しています。実行中の処理が止まるまで待機します。"
+      ]
     };
     const app = createTestApp({
       showHomeUseCase: async () => {

@@ -7,6 +7,7 @@ import { usePredictRaceJob } from "@keiba-ai-assistant/web/components/home/use-p
 /** netKeiba URL入力からレース解析ジョブを開始し、進捗を表示するパネル。 */
 export const PredictRacePanel = () => {
   const predictRaceJob = usePredictRaceJob();
+  const isStoppingJob = predictRaceJob.isAbortingJob || predictRaceJob.isJobCancelling;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -50,7 +51,11 @@ export const PredictRacePanel = () => {
                 <Search aria-hidden="true" size={16} />
               )}
               <span>
-                {predictRaceJob.isStartingJob || predictRaceJob.isJobActive ? "解析中" : "開始"}
+                {predictRaceJob.isJobCancelling
+                  ? "停止中"
+                  : predictRaceJob.isStartingJob || predictRaceJob.isJobActive
+                    ? "解析中"
+                    : "開始"}
               </span>
             </button>
           </div>
@@ -65,12 +70,12 @@ export const PredictRacePanel = () => {
                   await predictRaceJob.abort();
                 }}
               >
-                {predictRaceJob.isAbortingJob ? (
+                {isStoppingJob ? (
                   <LoaderCircle aria-hidden="true" className="animate-spin" size={14} />
                 ) : (
                   <XCircle aria-hidden="true" size={14} />
                 )}
-                <span>{predictRaceJob.isAbortingJob ? "中止中" : "ジョブを中止"}</span>
+                <span>{isStoppingJob ? "停止処理中" : "ジョブを中止"}</span>
               </button>
               {predictRaceJob.activeJobElapsedTimeLabel !== null ? (
                 <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-app-border bg-app-muted px-2.5 text-xs font-semibold text-app-subtle">
