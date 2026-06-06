@@ -99,6 +99,7 @@ describe("run-store", () => {
           stakeWeight: 40
         }
       ],
+      referencedLessons: [],
       generatedAt: "2026-05-31T13:30:00+09:00"
     };
 
@@ -136,6 +137,7 @@ describe("run-store", () => {
           stakeWeight: 40
         }
       ],
+      referencedLessons: [],
       generatedAt: "2026-05-31T13:30:00+09:00"
     };
     const qaEntry: QaEntry = {

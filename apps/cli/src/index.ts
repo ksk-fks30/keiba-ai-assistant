@@ -4,6 +4,7 @@ import { registerAnalyzeCommand } from "@keiba-ai-assistant/cli/commands/analyze
 import { registerAskCommand, registerQaHistoryCommand } from "@keiba-ai-assistant/cli/commands/ask";
 import { registerCollectCommand } from "@keiba-ai-assistant/cli/commands/collect";
 import { registerImportRaceCommand } from "@keiba-ai-assistant/cli/commands/import-race";
+import { registerLessonsCommand } from "@keiba-ai-assistant/cli/commands/lessons";
 import { registerPolicyCommand } from "@keiba-ai-assistant/cli/commands/policy";
 import { registerPredictCommand } from "@keiba-ai-assistant/cli/commands/predict";
 import { registerServeCommand } from "@keiba-ai-assistant/cli/commands/serve";
@@ -30,6 +31,7 @@ registerPredictCommand(program);
 registerPolicyCommand(program);
 registerImportRaceCommand(program);
 registerAnalyzeCommand(program);
+registerLessonsCommand(program);
 registerAskCommand(program);
 registerQaHistoryCommand(program);
 

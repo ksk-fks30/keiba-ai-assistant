@@ -1,11 +1,17 @@
 import { z } from "zod";
 import { predictionSchema } from "@keiba-ai-assistant/models/prediction";
+import { predictionReferencedLessonSchema } from "@keiba-ai-assistant/models/prediction-referenced-lesson";
 
 /** 予想下書きモデル。AIが生成する、生成日時を含まない予想本文を表す。 */
-export const predictionDraftSchema = predictionSchema.omit({
-  // 生成日時はアプリ側で付与するため、AI出力には含めない。
-  generatedAt: true
-});
+export const predictionDraftSchema = predictionSchema
+  .omit({
+    // 生成日時はアプリ側で付与するため、AI出力には含めない。
+    generatedAt: true
+  })
+  .extend({
+    // AIには採用Lessonがない場合も空配列を明示させる。
+    referencedLessons: z.array(predictionReferencedLessonSchema)
+  });
 
 export type PredictionDraft = z.infer<typeof predictionDraftSchema>;
 

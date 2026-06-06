@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { parsePredictionDraft } from "@keiba-ai-assistant/models/prediction-draft";
+import { parsePrediction } from "@keiba-ai-assistant/models/prediction";
 
-describe("parsePredictionDraft", () => {
-  test("generatedAt が無くても予想下書きとして解釈できる", () => {
+describe("parsePrediction", () => {
+  test("旧形式の予想結果ではreferencedLessonsを空配列として扱う", () => {
     // Arrange
     const value = {
       raceId: "fixture-race",
@@ -24,14 +24,13 @@ describe("parsePredictionDraft", () => {
           stakeWeight: 100
         }
       ],
-      referencedLessons: []
+      generatedAt: "2026-05-31T05:40:00.000Z"
     };
 
     // Act
-    const actual = parsePredictionDraft(value);
+    const actual = parsePrediction(value);
 
     // Assert
-    expect(actual.raceId).toBe("fixture-race");
-    expect(actual).not.toHaveProperty("generatedAt");
+    expect(actual.referencedLessons).toEqual([]);
   });
 });

@@ -179,6 +179,46 @@ describe("buildRaceAnalysisPrompt", () => {
     expect(actual).toContain("type, horses, reason, stakeWeight");
     expect(actual).toContain("stakeWeight は0から100の整数");
     expect(actual).toContain("合計が100");
+    expect(actual).toContain("referencedLessons");
+    expect(actual).toContain("絶対ルールではなく判断補助");
+  });
+
+  test("過去の反省Lesson候補をプロンプトに含める", () => {
+    // Arrange
+    const race = parseRace(sampleRace);
+    const policy = parsePredictionPolicy({
+      path: "policies/main.md",
+      content: "芝マイルでは持続力を重視する。",
+      loadedAt: "2026-05-31T14:30:00+09:00"
+    });
+
+    // Act
+    const actual = buildRaceAnalysisPrompt({
+      race,
+      policy,
+      lessonCandidates: [
+        {
+          id: "lesson-fixture-001",
+          sourceRaceId: "fixture-aoba-mile-2026",
+          status: "approved",
+          title: "前残り傾向では人気薄先行馬を残す",
+          situationKey: "芝1600m・前残り・人気薄先行馬",
+          tags: ["芝", "前残り", "先行"],
+          diaryText: "架空レースでは前残り傾向で先行馬を軽視した。",
+          decisionGuidance: "前残り傾向が明確なら人気薄でも先行馬を相手に残す。",
+          applicableWhen: ["前が止まりにくい馬場"],
+          notApplicableWhen: ["差しが届く馬場"],
+          confidence: "medium",
+          createdAt: "2026-06-06T12:00:00.000Z",
+          updatedAt: "2026-06-06T12:00:00.000Z"
+        }
+      ]
+    });
+
+    // Assert
+    expect(actual).toContain("過去の反省Lesson候補");
+    expect(actual).toContain("lesson-fixture-001");
+    expect(actual).toContain("前残り傾向では人気薄先行馬を残す");
   });
 });
 
@@ -200,6 +240,7 @@ describe("buildRaceQuestionPrompt", () => {
         summary: "シラユキコードを中心に評価する。",
         evaluations: [],
         betCandidates: [],
+        referencedLessons: [],
         generatedAt: "2026-05-31T05:40:00.000Z"
       },
       policy,

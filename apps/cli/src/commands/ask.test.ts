@@ -165,6 +165,7 @@ const createPrediction = (raceId: string): Prediction => {
         stakeWeight: 100
       }
     ],
+    referencedLessons: [],
     generatedAt: "2026-05-31T05:40:00.000Z"
   };
 };

@@ -2,6 +2,7 @@ import {
   buildPredictionDraftJsonSchema,
   buildQaAnswerDraftJsonSchema,
   buildRaceDraftJsonSchema,
+  type LessonEntry,
   type Prediction,
   type PredictionPolicy,
   type QaEntry,
@@ -21,6 +22,8 @@ export interface RaceAnalysisPromptInput {
   race: Race;
   /** ユーザーが管理する予想方針。 */
   policy: PredictionPolicy;
+  /** 予想時に参照候補として渡す承認済みLesson。 */
+  lessonCandidates?: LessonEntry[] | undefined;
 }
 
 /** 追加質問プロンプトの組み立てに必要な入力。 */
@@ -172,9 +175,15 @@ export const buildRaceAnalysisPrompt = (input: RaceAnalysisPromptInput): string 
     "generatedAt はアプリ側で付与するため、出力に含めないでください。",
     "betCandidates の各要素には type, horses, reason, stakeWeight を必ず含めてください。",
     "stakeWeight は0から100の整数で、全 betCandidates の合計が100になるようにしてください。",
+    "referencedLessons には、過去の反省Lesson候補から今回の予想に採用したものだけを最大5件入れてください。",
+    "採用するLessonがない場合、referencedLessons は空配列にしてください。",
+    "過去の反省Lessonは絶対ルールではなく判断補助です。現在の条件に合わないLessonは採用しないでください。",
     "",
     "予想方針:",
     input.policy.content,
+    "",
+    "過去の反省Lesson候補:",
+    JSON.stringify(input.lessonCandidates ?? [], null, 2),
     "",
     "レースデータ:",
     JSON.stringify(input.race, null, 2)
