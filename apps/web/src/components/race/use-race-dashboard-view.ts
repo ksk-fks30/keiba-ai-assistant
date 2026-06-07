@@ -278,7 +278,7 @@ const formatSurface = (surface: RaceSurface): string => {
   return surfaceLabels[surface];
 };
 
-/** netKeiba race_id 末尾2桁から第何レースかを表示する。 */
+/** netKeiba race_id 末尾2桁からレース番号を12R形式で表示する。 */
 const formatRaceNumber = (raceId: string): string => {
   if (!/^\d{12}$/.test(raceId)) {
     return "未取得";
@@ -290,7 +290,7 @@ const formatRaceNumber = (raceId: string): string => {
     return "未取得";
   }
 
-  return `第 ${raceNumber} R`;
+  return `${raceNumber}R`;
 };
 
 /** 日時文字列を YY/mm/dd HH:mm の表示へ変換する。 */

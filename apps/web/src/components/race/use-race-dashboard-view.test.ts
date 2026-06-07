@@ -103,6 +103,6 @@ describe("useRaceDashboardView", () => {
     const actual = useRaceDashboardView(race);
 
     // Assert
-    expect(actual?.raceNumberLabel).toBe("第 9 R");
+    expect(actual?.raceNumberLabel).toBe("9R");
   });
 });

@@ -69,6 +69,7 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 - Page は Inertia props として受け取った domain model を表示用データへ加工し、画面構成を接続する。
 - UI の細部は `components/` に分ける。
 - 表示用データへの加工が多い場合は、React側のhookやhelperに分離する。
+- `use-` で始まるファイル名や `useXxx` という関数名は、React Hook ルールに従う実際の Hook に限って使う。純粋な表示用データ変換は `xxx-view.ts` や `createXxxView` のように命名する。
 - 長時間操作やフォーム送信は、ユーザーが処理状態を理解できる文言と状態を持つ。
 - 操作説明のためだけの大きなテキストやランディングページ風の装飾は避け、保存済み run を確認・質問する実用画面を優先する。
 
