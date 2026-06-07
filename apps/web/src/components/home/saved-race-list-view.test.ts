@@ -83,6 +83,36 @@ describe("createSavedRaceListView", () => {
     expect(actual.visibleRuns.map((run) => run.run.raceId)).toEqual(["202605030110"]);
   });
 
+  test("日付不明のrunを日付不明選択肢から表示できる", () => {
+    // Arrange
+    const datedRun = createSavedRaceRun({
+      raceId: "202605030110",
+      startTime: "2026-06-07T15:10:00+09:00"
+    });
+    const unknownDateRun = createSavedRaceRunWithoutRace("fixture-missing-race");
+
+    // Act
+    const defaultView = createSavedRaceListView({
+      runs: [unknownDateRun, datedRun],
+      selectedDate: null,
+      now: new Date("2026-06-07T00:00:00+09:00")
+    });
+    const unknownDateView = createSavedRaceListView({
+      runs: [unknownDateRun, datedRun],
+      selectedDate: "unknown",
+      now: new Date("2026-06-07T00:00:00+09:00")
+    });
+
+    // Assert
+    expect(defaultView.dateOptions).toContainEqual({ value: "unknown", label: "日付不明" });
+    expect(defaultView.selectedDate).toBe("2026-06-07");
+    expect(defaultView.visibleRuns.map((run) => run.run.raceId)).toEqual(["202605030110"]);
+    expect(unknownDateView.selectedDate).toBe("unknown");
+    expect(unknownDateView.visibleRuns.map((run) => run.run.raceId)).toEqual([
+      "fixture-missing-race"
+    ]);
+  });
+
   test("一覧サマリに第何レースかと振り返り状態を保持できる", () => {
     // Arrange
     const run = createSavedRaceRun({
@@ -121,6 +151,19 @@ const createSavedRaceRun = (input: {
     hasQa: false,
     hasResult: input.hasReflection ?? false,
     hasReflection: input.hasReflection ?? false,
+    updatedAt: "2026-06-06T10:00:00.000Z"
+  };
+};
+
+/** race.json がない保存済みrunを作る。 */
+const createSavedRaceRunWithoutRace = (raceId: string): SavedRaceRun => {
+  return {
+    raceId,
+    race: null,
+    hasPrediction: false,
+    hasQa: false,
+    hasResult: false,
+    hasReflection: false,
     updatedAt: "2026-06-06T10:00:00.000Z"
   };
 };

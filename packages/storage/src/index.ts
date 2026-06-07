@@ -1,5 +1,9 @@
 export { readCache, writeCache } from "@keiba-ai-assistant/storage/cache-store";
 export {
+  buildLessonSearchInputFromRace,
+  buildPredictionLessonReferences
+} from "@keiba-ai-assistant/storage/lesson-analysis";
+export {
   getPolicyDirectory,
   getPolicyPath,
   readPredictionPolicy

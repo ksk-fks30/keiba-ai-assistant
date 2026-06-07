@@ -17,7 +17,7 @@ export interface SavedRaceRunView {
 
 /** 保存済みレース一覧の日付フィルタ選択肢。 */
 export interface SavedRaceDateOption {
-  /** YYYY-MM-DD形式の日付キー。 */
+  /** YYYY-MM-DD形式の日付キー、または日付不明を表す固定値。 */
   value: string;
   /** 画面表示用の日付ラベル。 */
   label: string;
@@ -48,6 +48,7 @@ export interface CreateSavedRaceListViewInput {
 }
 
 const displayTimeZone = "Asia/Tokyo";
+const unknownDateOptionValue = "unknown";
 
 const dateKeyFormatter = new Intl.DateTimeFormat("ja-JP", {
   timeZone: displayTimeZone,
@@ -74,13 +75,8 @@ export const createSavedRaceListView = ({
 }: CreateSavedRaceListViewInput): SavedRaceListView => {
   const runViews = runs.map(buildSavedRaceRunView);
   const dateOptions = buildDateOptions(runViews);
-  const activeDate = selectActiveDate(
-    dateOptions.map((option) => option.value),
-    selectedDate,
-    readDateKey(now)
-  );
-  const visibleRuns =
-    activeDate === null ? runViews : runViews.filter((run) => run.raceDateKey === activeDate);
+  const activeDate = selectActiveDate(dateOptions, selectedDate, readDateKey(now));
+  const visibleRuns = runViews.filter((run) => isVisibleForActiveDate(run, activeDate));
 
   return {
     dateOptions,
@@ -197,30 +193,44 @@ const readDateKey = (date: Date): string | null => {
 /** 日付選択肢を、保存済みrunに存在する開催日だけで作る。 */
 const buildDateOptions = (runs: SavedRaceRunView[]): SavedRaceDateOption[] => {
   const keys = new Set<string>();
+  let hasUnknownDate = false;
   for (const run of runs) {
     if (run.raceDateKey !== null) {
       keys.add(run.raceDateKey);
+    } else {
+      hasUnknownDate = true;
     }
   }
 
-  return [...keys].sort().map((value) => ({
+  const options = [...keys].sort().map((value) => ({
     value,
     label: formatDateOptionLabel(value)
   }));
+
+  if (hasUnknownDate) {
+    options.push({
+      value: unknownDateOptionValue,
+      label: "日付不明"
+    });
+  }
+
+  return options;
 };
 
 /** 選択中の日付、または今日以降で最も近い日付を返す。 */
 const selectActiveDate = (
-  dateKeys: string[],
+  dateOptions: SavedRaceDateOption[],
   selectedDate: string | null,
   todayKey: string | null
 ): string | null => {
-  if (dateKeys.length === 0) {
+  const optionValues = dateOptions.map((option) => option.value);
+  if (optionValues.length === 0) {
     return null;
   }
-  if (selectedDate !== null && dateKeys.includes(selectedDate)) {
+  if (selectedDate !== null && optionValues.includes(selectedDate)) {
     return selectedDate;
   }
+  const dateKeys = optionValues.filter((value) => value !== unknownDateOptionValue);
   if (todayKey !== null) {
     const nearestFutureDate = dateKeys.find((dateKey) => dateKey >= todayKey);
     if (nearestFutureDate !== undefined) {
@@ -228,7 +238,19 @@ const selectActiveDate = (
     }
   }
 
-  return dateKeys.at(-1) ?? null;
+  return dateKeys.at(-1) ?? optionValues.at(0) ?? null;
+};
+
+/** 有効な日付フィルタに対してrunを表示するかを判定する。 */
+const isVisibleForActiveDate = (run: SavedRaceRunView, activeDate: string | null): boolean => {
+  if (activeDate === null) {
+    return true;
+  }
+  if (activeDate === unknownDateOptionValue) {
+    return run.raceDateKey === null;
+  }
+
+  return run.raceDateKey === activeDate;
 };
 
 /** YYYY-MM-DDキーをセレクト表示用ラベルへ変換する。 */

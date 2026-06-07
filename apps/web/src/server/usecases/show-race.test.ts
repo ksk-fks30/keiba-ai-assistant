@@ -379,6 +379,12 @@ const createUnusedLessonRepositoryMethods = () => {
     findLessonEntriesByIds: async () => {
       throw new Error("保存済み振り返りがない場合はLessonを読まない");
     },
+    searchLessonEntries: async () => {
+      throw new Error("詳細表示ではLesson候補を検索しない");
+    },
+    recordPredictionLessonReferences: async () => {
+      throw new Error("詳細表示ではLesson参照履歴を保存しない");
+    },
     updateLessonStatus: async () => {
       throw new Error("詳細表示ではLesson状態を更新しない");
     }

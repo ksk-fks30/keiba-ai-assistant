@@ -318,6 +318,12 @@ const createUnusedLessonRepositoryMethods = () => {
     findLessonEntriesByIds: async () => {
       throw new Error("reflectではLesson一覧を読まない");
     },
+    searchLessonEntries: async () => {
+      throw new Error("reflectではLesson候補を検索しない");
+    },
+    recordPredictionLessonReferences: async () => {
+      throw new Error("reflectではLesson参照履歴を保存しない");
+    },
     updateLessonStatus: async () => {
       throw new Error("reflectではLesson状態を更新しない");
     }

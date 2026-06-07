@@ -25,7 +25,11 @@ const policyRepository = createPolicyRepository();
 const showHomeUseCase = createShowHomeUseCase({ runRepository });
 const showRaceUseCase = createShowRaceUseCase({ runRepository, lessonRepository });
 const askRaceUseCase = createAskRaceUseCase({ runRepository, policyRepository });
-const predictRaceUseCase = createPredictRaceUseCase({ runRepository, policyRepository });
+const predictRaceUseCase = createPredictRaceUseCase({
+  runRepository,
+  lessonRepository,
+  policyRepository
+});
 const predictRaceJobStore = createPredictRaceJobStore({ predictRaceUseCase });
 const reflectRaceUseCase = createReflectRaceUseCase({
   runRepository,

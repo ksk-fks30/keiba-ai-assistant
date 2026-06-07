@@ -102,6 +102,41 @@ describe("searchLessonEntries", () => {
     expect(listed.map((entry) => entry.id)).toEqual(["lesson-to-approve"]);
   });
 
+  test("FTS検索ではbm25順位を優先して候補を並べる", async () => {
+    // Arrange
+    const options = await createTempLessonStoreOptions();
+    const strongMatch = createLessonEntry({
+      id: "lesson-strong-match",
+      title: "前残り先行馬を必ず残す",
+      tags: ["芝"],
+      diaryText: "前残り先行馬を軽視した。前残り先行馬の評価が足りなかった。",
+      decisionGuidance: "前残り先行馬を相手評価に残す。",
+      confidence: "medium",
+      updatedAt: "2026-06-05T12:00:00.000Z"
+    });
+    const weakMatch = createLessonEntry({
+      id: "lesson-weak-match",
+      title: "前残りだけを確認する",
+      tags: ["芝"],
+      diaryText: "前残りを見落とした。",
+      decisionGuidance: "馬場傾向を確認する。",
+      confidence: "high",
+      updatedAt: "2026-06-06T12:00:00.000Z"
+    });
+    await saveLessonEntry(weakMatch, options);
+    await saveLessonEntry(strongMatch, options);
+
+    // Act
+    const actual = await searchLessonEntries({ query: "前残り 先行馬", limit: 2 }, options);
+
+    // Assert
+    expect(actual.map((result) => result.lesson.id)).toEqual([
+      "lesson-strong-match",
+      "lesson-weak-match"
+    ]);
+    expect(actual[0]?.score).toBeGreaterThan(0);
+  });
+
   test("Lesson ID指定で入力順のまま取得できる", async () => {
     // Arrange
     const options = await createTempLessonStoreOptions();

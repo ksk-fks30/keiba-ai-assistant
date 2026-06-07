@@ -478,8 +478,16 @@ export const searchLessonEntries = async (
     }
 
     return [...candidates.values()]
-      .map((candidate) => ({ result: buildSearchResult(candidate, tags), order: candidate.order }))
+      .map((candidate) => ({
+        candidate,
+        result: buildSearchResult(candidate, tags),
+        order: candidate.order
+      }))
       .sort((left, right) => {
+        const ftsRankOrder = compareFtsRank(left.candidate.ftsRank, right.candidate.ftsRank);
+        if (ftsRankOrder !== 0) {
+          return ftsRankOrder;
+        }
         if (right.result.score !== left.result.score) {
           return right.result.score - left.result.score;
         }
@@ -711,7 +719,7 @@ const buildSearchResult = (
   searchTags: string[]
 ): LessonSearchResult => {
   const matchedTags = searchTags.filter((tag) => candidate.lesson.tags.includes(tag));
-  const ftsScore = candidate.ftsRank === undefined ? 0 : 5 / (1 + Math.max(0, candidate.ftsRank));
+  const ftsScore = candidate.ftsRank === undefined ? 0 : 1 / (1 + Math.exp(candidate.ftsRank));
   const tagScore = candidate.tagMatchCount * 10;
   const confidenceScore =
     candidate.lesson.confidence === "high" ? 2 : candidate.lesson.confidence === "medium" ? 1 : 0;
@@ -721,4 +729,12 @@ const buildSearchResult = (
     score: tagScore + ftsScore + confidenceScore,
     matchedTags
   };
+};
+
+const compareFtsRank = (leftRank: number | undefined, rightRank: number | undefined): number => {
+  if (leftRank !== undefined && rightRank !== undefined && leftRank !== rightRank) {
+    return leftRank - rightRank;
+  }
+
+  return 0;
 };

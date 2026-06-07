@@ -1,9 +1,17 @@
-import type { LessonEntry, LessonStatus } from "@keiba-ai-assistant/models";
+import type {
+  LessonEntry,
+  LessonStatus,
+  PredictionLessonReference
+} from "@keiba-ai-assistant/models";
 import {
   findLessonEntriesByIds,
   findLessonEntryById,
+  recordPredictionLessonReferences,
   saveLessonEntry,
+  searchLessonEntries,
   updateLessonEntryStatus,
+  type LessonSearchInput,
+  type LessonSearchResult,
   type LessonStoreOptions
 } from "@keiba-ai-assistant/storage";
 
@@ -13,6 +21,10 @@ export interface LessonRepository {
   saveLessonEntry: (lesson: LessonEntry) => Promise<void>;
   /** 指定ID群のLessonを入力順で返す。存在しないIDは除外する。 */
   findLessonEntriesByIds: (lessonIds: string[]) => Promise<LessonEntry[]>;
+  /** 予想時に参照するLesson候補を検索する。 */
+  searchLessonEntries: (input: LessonSearchInput) => Promise<LessonSearchResult[]>;
+  /** 予想で採用したLesson参照履歴を保存する。 */
+  recordPredictionLessonReferences: (references: PredictionLessonReference[]) => Promise<void>;
   /** Lessonの状態を更新し、更新後のLessonを返す。 */
   updateLessonStatus: (lessonId: string, status: LessonStatus) => Promise<LessonEntry>;
 }
@@ -35,6 +47,12 @@ export const createLessonRepository = (
     },
     findLessonEntriesByIds: async (lessonIds) => {
       return await findLessonEntriesByIds(lessonIds, lessonStoreOptions);
+    },
+    searchLessonEntries: async (input) => {
+      return await searchLessonEntries(input, lessonStoreOptions);
+    },
+    recordPredictionLessonReferences: async (references) => {
+      await recordPredictionLessonReferences(references, lessonStoreOptions);
     },
     updateLessonStatus: async (lessonId, status) => {
       await updateLessonEntryStatus(lessonId, status, lessonStoreOptions);

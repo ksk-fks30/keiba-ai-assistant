@@ -5,8 +5,10 @@ import { Command } from "commander";
 import { afterEach, describe, expect, test } from "vitest";
 import { registerPredictCommand } from "@keiba-ai-assistant/cli/commands/predict";
 import {
+  type LessonEntry,
   parseRace,
   type Prediction,
+  type PredictionLessonReference,
   type Race,
   type RaceSourceSnapshot
 } from "@keiba-ai-assistant/models";
@@ -38,8 +40,13 @@ describe("registerPredictCommand", () => {
     const policyPath = await writeTempPolicyFile("芝マイルでは持続力を重視する。");
     const snapshot = createSnapshot();
     const race = createRace(snapshot);
-    const prediction = createPrediction(race.id);
+    const lesson = createLessonEntry();
+    const prediction = createPrediction(race.id, [
+      { lessonId: lesson.id, title: lesson.title, reason: "前残り傾向が近いため。" }
+    ]);
     const logs: string[] = [];
+    const recordedReferences: PredictionLessonReference[] = [];
+    const lessonDbPath = join(rootDir, "lesson.sqlite");
     const program = createPredictProgram({
       collectRaceSnapshot: async (input) => {
         expect(input).toEqual({
@@ -67,6 +74,17 @@ describe("registerPredictCommand", () => {
           observedAt: "2026-05-31T16:00:00+09:00"
         })
       },
+      searchLessonEntries: async (input, options) => {
+        expect(input).toBeDefined();
+        if (input === undefined) {
+          throw new Error("Lesson検索入力が渡されていません。");
+        }
+        expect(input.status).toBe("approved");
+        expect(input.tags).toContain("東京");
+        expect(input.tags).toContain("芝");
+        expect(options).toEqual({ dbPath: lessonDbPath });
+        return [{ lesson, score: 12, matchedTags: ["芝"] }];
+      },
       analyzeRace: async (input) => {
         expect(input.race).toEqual({
           ...race,
@@ -81,7 +99,12 @@ describe("registerPredictCommand", () => {
         });
         expect(input.policy.content).toBe("芝マイルでは持続力を重視する。");
         expect(input.model).toBe("fixture-codex-model");
+        expect(input.lessonCandidates).toEqual([lesson]);
         return prediction;
+      },
+      recordPredictionLessonReferences: async (references, options) => {
+        expect(options).toEqual({ dbPath: lessonDbPath });
+        recordedReferences.push(...references);
       },
       log: (message) => {
         logs.push(message);
@@ -98,6 +121,8 @@ describe("registerPredictCommand", () => {
       rootDir,
       "--policy-path",
       policyPath,
+      "--lesson-db",
+      lessonDbPath,
       "--model",
       "fixture-codex-model",
       "--min-delay-ms",
@@ -121,6 +146,15 @@ describe("registerPredictCommand", () => {
       }
     });
     expect(actualPrediction).toEqual(prediction);
+    expect(recordedReferences).toEqual([
+      {
+        raceId: prediction.raceId,
+        predictionId: `${prediction.raceId}:${prediction.generatedAt}`,
+        lessonId: lesson.id,
+        reason: "前残り傾向が近いため。",
+        usedAt: prediction.generatedAt
+      }
+    ]);
     expect(logs).toEqual([
       "レース取得と分析を開始します。",
       "netKeiba snapshot取得中です。",
@@ -132,9 +166,12 @@ describe("registerPredictCommand", () => {
       `既存の予想結果を無効化しました: ${race.id}`,
       "race.json を保存しています。",
       `race.json を保存しました: ${race.id}`,
+      "過去の反省Lesson候補を検索しています。",
+      "Lesson候補を 1 件見つけました。",
       "予想方針を読み込んでいます。",
       "Codexで予想分析を実行しています。",
       "prediction.json を保存しています。",
+      "採用されたLesson参照履歴を保存しています。",
       `prediction.json を保存しました: ${prediction.raceId}`,
       `レース取得と分析が完了しました: ${prediction.raceId}`
     ]);
@@ -163,6 +200,7 @@ describe("registerPredictCommand", () => {
       weatherProvider: {
         getWeather: async () => ({})
       },
+      searchLessonEntries: async () => [],
       analyzeRace: async () => {
         throw new Error("analysis failed");
       },
@@ -251,7 +289,10 @@ const createRace = (snapshot: RaceSourceSnapshot): Race => {
 };
 
 /** CLI 保存確認で使う最小限の Prediction fixture を作る。 */
-const createPrediction = (raceId: string): Prediction => {
+const createPrediction = (
+  raceId: string,
+  referencedLessons: Prediction["referencedLessons"] = []
+): Prediction => {
   return {
     raceId,
     summary: "架空レースでは先行力と持続力を重視する。",
@@ -272,8 +313,27 @@ const createPrediction = (raceId: string): Prediction => {
         stakeWeight: 40
       }
     ],
-    referencedLessons: [],
+    referencedLessons,
     generatedAt: "2026-05-31T14:40:00+09:00"
+  };
+};
+
+/** CLI predict テストで使うLesson fixtureを作る。 */
+const createLessonEntry = (): LessonEntry => {
+  return {
+    id: "lesson-fixture-001",
+    sourceRaceId: "fixture-aoba-mile-2026",
+    status: "approved",
+    title: "前残り傾向では人気薄先行馬を残す",
+    situationKey: "芝1600m・前残り",
+    tags: ["芝", "1600m", "前残り"],
+    diaryText: "前残り傾向で先行馬を軽視した。",
+    decisionGuidance: "前残り傾向が明確な場合は先行馬を相手に残す。",
+    applicableWhen: ["前が止まりにくい馬場"],
+    notApplicableWhen: ["差しが届く馬場"],
+    confidence: "medium",
+    createdAt: "2026-05-30T12:00:00.000Z",
+    updatedAt: "2026-05-30T12:00:00.000Z"
   };
 };
 

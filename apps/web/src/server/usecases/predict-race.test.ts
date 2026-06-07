@@ -2,14 +2,17 @@ import { describe, expect, test } from "vitest";
 import sampleRace from "@fixtures/races/sample-race.json";
 import type { AnalyzeRaceInput, ExtractRaceFromSnapshotInput } from "@keiba-ai-assistant/ai";
 import {
+  type LessonEntry,
   parseRace,
   type Prediction,
+  type PredictionLessonReference,
   type PredictionPolicy,
   type Race,
   type RaceSourceSnapshot,
   type Weather
 } from "@keiba-ai-assistant/models";
 import type { CollectRaceSnapshotInput, WeatherProvider } from "@keiba-ai-assistant/scraper";
+import type { LessonRepository } from "@keiba-ai-assistant/web/server/repositories/lesson-repository";
 import { createPredictRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/predict-race";
 
 describe("createPredictRaceUseCase", () => {
@@ -21,13 +24,17 @@ describe("createPredictRaceUseCase", () => {
     const weather = createWeather();
     const raceWithWeather = parseRace({ ...race, weather });
     const policy = createPredictionPolicy();
-    const prediction = createPrediction(race.id);
+    const lesson = createLessonEntry();
+    const prediction = createPrediction(race.id, [
+      { lessonId: lesson.id, title: lesson.title, reason: "前残り傾向が近いため。" }
+    ]);
     const events: string[] = [];
     let actualCollectInput: CollectRaceSnapshotInput | null = null;
     let actualExtractInput: ExtractRaceFromSnapshotInput | null = null;
     let actualAnalyzeInput: AnalyzeRaceInput | null = null;
     let savedRace: Race | null = null;
     let savedPrediction: Prediction | null = null;
+    let recordedReferences: PredictionLessonReference[] = [];
     const abortController = new AbortController();
     const predictRaceUseCase = createPredictRaceUseCase({
       runRepository: {
@@ -42,6 +49,20 @@ describe("createPredictRaceUseCase", () => {
         savePrediction: async (input) => {
           events.push("savePrediction");
           savedPrediction = input;
+        }
+      },
+      lessonRepository: {
+        ...createUnusedLessonRepositoryMethods(),
+        searchLessonEntries: async (input) => {
+          events.push("searchLessons");
+          expect(input.status).toBe("approved");
+          expect(input.tags).toContain("青葉競馬場");
+          expect(input.tags).toContain("芝");
+          return [{ lesson, score: 12, matchedTags: ["芝"] }];
+        },
+        recordPredictionLessonReferences: async (references) => {
+          events.push("recordLessons");
+          recordedReferences = references;
         }
       },
       policyRepository: {
@@ -96,20 +117,32 @@ describe("createPredictRaceUseCase", () => {
     expect(actualAnalyzeInput).toEqual({
       race: raceWithWeather,
       policy,
+      lessonCandidates: [lesson],
       timeoutMs: 2_000,
       signal: abortController.signal
     });
     expect(savedRace).toEqual(raceWithWeather);
     expect(savedPrediction).toEqual(prediction);
+    expect(recordedReferences).toEqual([
+      {
+        raceId: prediction.raceId,
+        predictionId: `${prediction.raceId}:${prediction.generatedAt}`,
+        lessonId: lesson.id,
+        reason: "前残り傾向が近いため。",
+        usedAt: prediction.generatedAt
+      }
+    ]);
     expect(events).toEqual([
       "collect",
       "extract",
       "weather",
       `invalidate:${race.id}`,
       "saveRace",
+      "searchLessons",
       "policy",
       "analyze",
-      "savePrediction"
+      "savePrediction",
+      "recordLessons"
     ]);
   });
 
@@ -125,6 +158,7 @@ describe("createPredictRaceUseCase", () => {
         saveRace: async () => {},
         savePrediction: async () => {}
       },
+      lessonRepository: createLessonRepositoryWithNoCandidates(),
       policyRepository: {
         readPredictionPolicy: async () => createPredictionPolicy()
       },
@@ -163,6 +197,7 @@ describe("createPredictRaceUseCase", () => {
         },
         savePrediction: async () => {}
       },
+      lessonRepository: createLessonRepositoryWithNoCandidates(),
       policyRepository: {
         readPredictionPolicy: async () => createPredictionPolicy()
       },
@@ -190,6 +225,7 @@ describe("createPredictRaceUseCase", () => {
     // Arrange
     const predictRaceUseCase = createPredictRaceUseCase({
       runRepository: createUnusedRunRepositoryMethods(),
+      lessonRepository: createUnusedLessonRepositoryMethods(),
       policyRepository: {
         readPredictionPolicy: async () => {
           throw new Error("URL不正時は予想方針を読まない");
@@ -218,6 +254,7 @@ describe("createPredictRaceUseCase", () => {
     // Arrange
     const predictRaceUseCase = createPredictRaceUseCase({
       runRepository: createUnusedRunRepositoryMethods(),
+      lessonRepository: createUnusedLessonRepositoryMethods(),
       policyRepository: {
         readPredictionPolicy: async () => {
           throw new Error("ホスト名不正時は予想方針を読まない");
@@ -246,6 +283,7 @@ describe("createPredictRaceUseCase", () => {
     // Arrange
     const predictRaceUseCase = createPredictRaceUseCase({
       runRepository: createUnusedRunRepositoryMethods(),
+      lessonRepository: createUnusedLessonRepositoryMethods(),
       policyRepository: {
         readPredictionPolicy: async () => {
           throw new Error("race_id不正時は予想方針を読まない");
@@ -307,7 +345,10 @@ const createWeatherProvider = (input: {
 };
 
 /** predict usecaseテスト用のPredictionを作る。 */
-const createPrediction = (raceId: string): Prediction => {
+const createPrediction = (
+  raceId: string,
+  referencedLessons: Prediction["referencedLessons"] = []
+): Prediction => {
   return {
     raceId,
     summary: "架空レースでは先行力と持続力を重視する。",
@@ -328,8 +369,27 @@ const createPrediction = (raceId: string): Prediction => {
         stakeWeight: 60
       }
     ],
-    referencedLessons: [],
+    referencedLessons,
     generatedAt: "2026-05-31T05:40:00.000Z"
+  };
+};
+
+/** predict usecaseテストで使うLesson fixtureを作る。 */
+const createLessonEntry = (): LessonEntry => {
+  return {
+    id: "lesson-fixture-001",
+    sourceRaceId: "fixture-aoba-mile-2026",
+    status: "approved",
+    title: "前残り傾向では人気薄先行馬を残す",
+    situationKey: "芝1600m・前残り",
+    tags: ["芝", "1600m", "前残り"],
+    diaryText: "前残り傾向で先行馬を軽視した。",
+    decisionGuidance: "前残り傾向が明確な場合は先行馬を相手に残す。",
+    applicableWhen: ["前が止まりにくい馬場"],
+    notApplicableWhen: ["差しが届く馬場"],
+    confidence: "medium",
+    createdAt: "2026-05-30T12:00:00.000Z",
+    updatedAt: "2026-05-30T12:00:00.000Z"
   };
 };
 
@@ -380,6 +440,38 @@ const createUnusedRunRepositoryMethods = () => {
     },
     appendQaEntry: async () => {
       throw new Error("predictではQ&Aを追記しない");
+    }
+  };
+};
+
+/** predict usecaseテストでLesson候補がない場合のrepositoryスタブを作る。 */
+const createLessonRepositoryWithNoCandidates = (): LessonRepository => {
+  return {
+    ...createUnusedLessonRepositoryMethods(),
+    searchLessonEntries: async () => [],
+    recordPredictionLessonReferences: async () => {
+      throw new Error("Lesson採用がない場合は参照履歴を保存しない");
+    }
+  };
+};
+
+/** predict usecaseテストで使わないLessonRepositoryメソッドを失敗スタブとして作る。 */
+const createUnusedLessonRepositoryMethods = (): LessonRepository => {
+  return {
+    saveLessonEntry: async () => {
+      throw new Error("predictではLessonを保存しない");
+    },
+    findLessonEntriesByIds: async () => {
+      throw new Error("predictではLesson ID指定取得をしない");
+    },
+    searchLessonEntries: async () => {
+      throw new Error("URL不正時はLesson候補を検索しない");
+    },
+    recordPredictionLessonReferences: async () => {
+      throw new Error("URL不正時はLesson参照履歴を保存しない");
+    },
+    updateLessonStatus: async () => {
+      throw new Error("predictではLesson状態を更新しない");
     }
   };
 };

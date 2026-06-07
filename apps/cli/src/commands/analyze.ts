@@ -1,17 +1,13 @@
 import type { Command } from "commander";
 import { analyzeRace, type AnalyzeRaceInput } from "@keiba-ai-assistant/ai";
-import type {
-  LessonEntry,
-  Prediction,
-  PredictionLessonReference,
-  Race
-} from "@keiba-ai-assistant/models";
+import type { LessonEntry, Prediction } from "@keiba-ai-assistant/models";
 import {
+  buildLessonSearchInputFromRace,
+  buildPredictionLessonReferences,
   recordPredictionLessonReferences,
   readPredictionPolicy,
   readRace,
   searchLessonEntries,
-  type LessonSearchInput,
   type LessonStoreOptions,
   writePrediction,
   type PolicyStoreOptions,
@@ -172,41 +168,4 @@ const buildAnalyzeRaceInput = (
   }
 
   return { race, policy, lessonCandidates, model: options.model };
-};
-
-/** RaceからLesson検索用の自然文クエリと短いタグを組み立てる。 */
-const buildLessonSearchInputFromRace = (race: Race): LessonSearchInput => {
-  const surface = race.surface === "turf" ? "芝" : race.surface === "dirt" ? "ダート" : undefined;
-  const optionalTerms = [
-    race.racecourse,
-    surface,
-    `${race.distanceMeters}m`,
-    race.direction,
-    race.trackCondition,
-    race.weather?.condition
-  ].filter((term): term is string => term !== undefined && term.length > 0);
-  const runningStyleTags = race.horses.flatMap((horse) =>
-    horse.pastPerformances
-      .map((performance) => performance.runningStyle)
-      .filter((style): style is string => style !== undefined && style.length > 0)
-  );
-
-  return {
-    query: optionalTerms.join(" "),
-    tags: [...optionalTerms, ...runningStyleTags],
-    limit: 10,
-    status: "approved"
-  };
-};
-
-/** Predictionに含まれる採用LessonをDB保存用の参照履歴へ変換する。 */
-const buildPredictionLessonReferences = (prediction: Prediction): PredictionLessonReference[] => {
-  const predictionId = `${prediction.raceId}:${prediction.generatedAt}`;
-  return prediction.referencedLessons.map((reference) => ({
-    raceId: prediction.raceId,
-    predictionId,
-    lessonId: reference.lessonId,
-    reason: reference.reason,
-    usedAt: prediction.generatedAt
-  }));
 };

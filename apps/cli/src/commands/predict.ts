@@ -12,8 +12,13 @@ import {
 } from "@keiba-ai-assistant/scraper";
 import type { WeatherProvider } from "@keiba-ai-assistant/scraper/weather/provider";
 import {
+  buildLessonSearchInputFromRace,
+  buildPredictionLessonReferences,
   invalidateRunAnalysis,
+  recordPredictionLessonReferences,
   readPredictionPolicy,
+  searchLessonEntries,
+  type LessonStoreOptions,
   writePrediction,
   writeRace,
   type PolicyStoreOptions,
@@ -32,6 +37,8 @@ interface PredictCommandOptions {
   policyDir?: string | undefined;
   /** 互換用の予想方針ファイルのパス。 */
   policyPath?: string | undefined;
+  /** Lesson SQLite DBファイルのパス。 */
+  lessonDb?: string | undefined;
   /** ページ表示後に最低限待機する時間。ミリ秒文字列。 */
   minDelayMs?: string | undefined;
   /** レースページから遷移して取得する馬詳細ページの最大件数。未指定なら全頭。 */
@@ -52,6 +59,8 @@ export interface PredictCommandDependencies {
   weatherProvider?: WeatherProvider | undefined;
   /** 予想方針を読み込む関数。 */
   readPredictionPolicy?: typeof readPredictionPolicy | undefined;
+  /** 予想時に参照するLesson候補を検索する関数。 */
+  searchLessonEntries?: typeof searchLessonEntries | undefined;
   /** レース分析を実行する関数。 */
   analyzeRace?: ((input: AnalyzeRaceInput) => Promise<Prediction>) | undefined;
   /** 既存の分析結果とQ&A履歴を無効化する関数。 */
@@ -60,6 +69,8 @@ export interface PredictCommandDependencies {
   writeRace?: typeof writeRace | undefined;
   /** 分析結果を run store へ保存する関数。 */
   writePrediction?: typeof writePrediction | undefined;
+  /** 予想で採用したLesson参照履歴を保存する関数。 */
+  recordPredictionLessonReferences?: typeof recordPredictionLessonReferences | undefined;
   /** CLI にメッセージを出力する関数。 */
   log?: ((message: string) => void) | undefined;
 }
@@ -75,10 +86,13 @@ export const registerPredictCommand = (
     extractRaceFromSnapshot: dependencies.extractRaceFromSnapshot ?? extractRaceFromSnapshot,
     weatherProvider: dependencies.weatherProvider ?? defaultWeatherProvider,
     readPredictionPolicy: dependencies.readPredictionPolicy ?? readPredictionPolicy,
+    searchLessonEntries: dependencies.searchLessonEntries ?? searchLessonEntries,
     analyzeRace: dependencies.analyzeRace ?? analyzeRace,
     invalidateRunAnalysis: dependencies.invalidateRunAnalysis ?? invalidateRunAnalysis,
     writeRace: dependencies.writeRace ?? writeRace,
     writePrediction: dependencies.writePrediction ?? writePrediction,
+    recordPredictionLessonReferences:
+      dependencies.recordPredictionLessonReferences ?? recordPredictionLessonReferences,
     log: dependencies.log ?? console.log
   };
 
@@ -91,6 +105,7 @@ export const registerPredictCommand = (
     .option("--model <model>", "Codex model name")
     .option("--policy-dir <path>", "Prediction policy directory path")
     .option("--policy-path <path>", "Prediction policy file path (compatibility)")
+    .option("--lesson-db <path>", "Lesson SQLite database path")
     .option("--min-delay-ms <ms>", "Minimum delay after page load in milliseconds")
     .option(
       "--horse-detail-limit <count>",
@@ -100,6 +115,7 @@ export const registerPredictCommand = (
     .option("--show-browser", "Run browser with a visible window")
     .action(async (raceUrl: string | undefined, options: PredictCommandOptions) => {
       const runStoreOptions = buildRunStoreOptions(options);
+      const lessonStoreOptions = buildLessonStoreOptions(options);
       deps.log("レース取得と分析を開始します。");
       const snapshot = await deps.collectRaceSnapshot(
         buildCollectRaceSnapshotInput(raceUrl, options, deps.log)
@@ -120,16 +136,31 @@ export const registerPredictCommand = (
       await deps.writeRace(raceWithWeather, runStoreOptions);
       deps.log(`race.json を保存しました: ${raceWithWeather.id}`);
 
+      deps.log("過去の反省Lesson候補を検索しています。");
+      const lessonResults = await deps.searchLessonEntries(
+        buildLessonSearchInputFromRace(raceWithWeather),
+        lessonStoreOptions
+      );
+      const lessonCandidates = lessonResults.map((result) => result.lesson);
+      deps.log(`Lesson候補を ${lessonCandidates.length} 件見つけました。`);
       deps.log("予想方針を読み込んでいます。");
       const policy = await deps.readPredictionPolicy(buildPolicyStoreOptions(options));
       deps.log("Codexで予想分析を実行しています。");
       const prediction = await deps.analyzeRace({
         race: raceWithWeather,
         policy,
+        lessonCandidates,
         ...buildCodexModelOption(options)
       });
       deps.log("prediction.json を保存しています。");
       await deps.writePrediction(prediction, runStoreOptions);
+      if (prediction.referencedLessons.length > 0) {
+        deps.log("採用されたLesson参照履歴を保存しています。");
+        await deps.recordPredictionLessonReferences(
+          buildPredictionLessonReferences(prediction),
+          lessonStoreOptions
+        );
+      }
       deps.log(`prediction.json を保存しました: ${prediction.raceId}`);
       deps.log(`レース取得と分析が完了しました: ${prediction.raceId}`);
     });
@@ -289,6 +320,15 @@ const buildRunStoreOptions = (options: PredictCommandOptions): RunStoreOptions =
   }
 
   return { rootDir: options.runsDir };
+};
+
+/** CLI オプションからLesson DBの読み書き設定を組み立てる。 */
+const buildLessonStoreOptions = (options: PredictCommandOptions): LessonStoreOptions => {
+  if (options.lessonDb === undefined) {
+    return {};
+  }
+
+  return { dbPath: options.lessonDb };
 };
 
 /** 1以上の整数として扱う CLI オプションを検証して number に変換する。 */
