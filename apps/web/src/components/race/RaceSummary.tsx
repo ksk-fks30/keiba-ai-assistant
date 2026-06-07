@@ -3,34 +3,63 @@ import type {
   RaceMetricView,
   WeatherDashboardView
 } from "@keiba-ai-assistant/web/components/race/use-race-dashboard-view";
+import { Button, ButtonLink } from "@keiba-ai-assistant/web/components/ui/Button";
 
 /** race概要カードのprops。 */
 interface RaceSummaryProps {
   /** ダッシュボード表示用に整形済みのレース情報。 */
   race: RaceDashboardView;
+  /** 結果取得と振り返りボタンを表示するかどうか。 */
+  showReflectionAction?: boolean;
+  /** 結果取得と振り返り処理中かどうか。 */
+  isReflectionActionLoading?: boolean;
+  /** 結果取得と振り返りボタンを押したときの処理。 */
+  onReflectionActionClick?: (() => void) | undefined;
 }
 
 /** race.json 由来のレース条件と天気をダッシュボード上部に表示する。 */
-export const RaceSummary = ({ race }: RaceSummaryProps) => {
+export const RaceSummary = ({
+  race,
+  showReflectionAction = false,
+  isReflectionActionLoading = false,
+  onReflectionActionClick
+}: RaceSummaryProps) => {
+  const subtitleLabel = formatRaceSubtitle(race);
+
   return (
     <section className="shrink-0 rounded-panel border border-app-border bg-app-surface p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-app-subtle">{race.id}</p>
           <h1 className="mt-2 text-2xl font-bold leading-tight text-app-text">{race.name}</h1>
-          <p className="mt-2 text-sm text-app-subtle">
-            {race.racecourse} / {race.surfaceLabel} {race.distanceLabel}
-          </p>
+          <p className="mt-2 text-sm text-app-subtle">{subtitleLabel}</p>
           <WeatherLine weather={race.weather} />
         </div>
-        <a
-          className="rounded-md border border-app-border px-3 py-2 text-sm font-medium text-turf hover:bg-turf-soft"
-          href={race.sourceUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          取得元
-        </a>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {showReflectionAction ? (
+            <Button
+              disabledPresentation="opacity"
+              disabled={isReflectionActionLoading}
+              onClick={onReflectionActionClick}
+              type="button"
+              variant="primary"
+            >
+              {isReflectionActionLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              ) : null}
+              {isReflectionActionLoading ? "振り返り処理中..." : "結果を取得し振り返る"}
+            </Button>
+          ) : null}
+          <ButtonLink
+            href={race.sourceUrl}
+            rel="noreferrer"
+            target="_blank"
+            variant="secondary"
+            weight="medium"
+          >
+            取得元
+          </ButtonLink>
+        </div>
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {race.conditionMetrics.map((metric) => (
@@ -39,6 +68,17 @@ export const RaceSummary = ({ race }: RaceSummaryProps) => {
       </div>
     </section>
   );
+};
+
+/** レース名の下に出す基本情報の短いサブタイトルを組み立てる。 */
+const formatRaceSubtitle = (race: RaceDashboardView): string => {
+  const parts = [
+    race.racecourse,
+    race.raceNumberLabel === "未取得" ? undefined : race.raceNumberLabel,
+    `${race.surfaceLabel} ${race.distanceLabel}`
+  ].filter((part): part is string => part !== undefined);
+
+  return parts.join(" / ");
 };
 
 /** レース条件の1項目を表示する小カード。 */

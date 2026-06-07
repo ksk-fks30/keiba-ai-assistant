@@ -16,6 +16,8 @@ export interface RaceDashboardView {
   sourceUrl: string;
   /** 競馬場名。 */
   racecourse: string;
+  /** 第何レースかの表示文字列。 */
+  raceNumberLabel: string;
   /** 発走時刻の表示文字列。 */
   startTimeLabel: string;
   /** 馬場種別の表示文字列。 */
@@ -161,12 +163,14 @@ const buildRaceDashboardView = (race: Race): RaceDashboardView => {
   const distanceLabel = `${race.distanceMeters}m`;
   const directionLabel = race.direction ?? "未取得";
   const trackConditionLabel = race.trackCondition ?? "未取得";
+  const raceNumberLabel = formatRaceNumber(race.id);
 
   return {
     id: race.id,
     name: race.name,
     sourceUrl: race.sourceUrl,
     racecourse: race.racecourse,
+    raceNumberLabel,
     startTimeLabel: formatDateTime(race.startTime),
     surfaceLabel,
     distanceLabel,
@@ -238,7 +242,7 @@ const buildHorseDashboardView = (horse: Horse): HorseDashboardView => {
     jockeyLabel: horse.jockey ?? "未取得",
     trainerLabel: horse.trainer ?? "未取得",
     bodyWeightLabel: formatBodyWeight(horse.bodyWeightKg, horse.bodyWeightDiffKg),
-    oddsLabel: horse.odds === undefined ? "未取得" : `${horse.odds.toFixed(1)}倍`,
+    oddsLabel: horse.odds === undefined ? "未取得" : horse.odds.toFixed(1),
     popularity: horse.popularity,
     popularityLabel: horse.popularity === undefined ? "未取得" : horse.popularity.toString(),
     pedigreeLabel: formatPedigree(horse),
@@ -272,6 +276,21 @@ const buildPastPerformanceDashboardView = (
 /** 馬場種別を日本語表示へ変換する。 */
 const formatSurface = (surface: RaceSurface): string => {
   return surfaceLabels[surface];
+};
+
+/** netKeiba race_id 末尾2桁からレース番号を12R形式で表示する。 */
+const formatRaceNumber = (raceId: string): string => {
+  if (!/^\d{12}$/.test(raceId)) {
+    return "未取得";
+  }
+
+  const raceNumberText = raceId.slice(-2);
+  const raceNumber = Number.parseInt(raceNumberText, 10);
+  if (raceNumber <= 0) {
+    return "未取得";
+  }
+
+  return `${raceNumber}R`;
 };
 
 /** 日時文字列を YY/mm/dd HH:mm の表示へ変換する。 */

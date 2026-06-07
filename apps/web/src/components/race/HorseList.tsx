@@ -23,21 +23,25 @@ export const HorseList = ({ horses }: HorseListProps) => {
         <table className="min-w-full border-b border-app-border-soft text-left text-sm">
           <thead className="bg-app-muted text-xs font-semibold text-app-subtle">
             <tr>
-              <th className="w-14 px-4 py-3">枠</th>
-              <th className="w-14 px-4 py-3">馬番</th>
+              <th className="w-14 px-4 py-3 text-center">枠</th>
+              <th className="w-14 px-4 py-3 text-center">馬番</th>
               <th className="min-w-44 px-4 py-3">馬名</th>
               <th className="px-4 py-3">性齢</th>
               <th className="px-4 py-3">騎手</th>
               <th className="px-4 py-3">馬体重</th>
               <th className="w-16 px-2 py-3 text-center">人気</th>
-              <th className="px-4 py-3 pl-8">オッズ</th>
+              <th className="w-24 px-4 py-3 text-right">オッズ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-app-border-soft">
             {horses.map((horse) => (
               <tr key={horse.id} className="align-middle">
-                <td className="px-4 py-3 font-semibold text-app-subtle">{horse.gateNumberLabel}</td>
-                <td className="px-4 py-3 font-bold text-app-text">{horse.horseNumberLabel}</td>
+                <td className="px-4 py-3 text-center font-semibold text-app-subtle">
+                  {horse.gateNumberLabel}
+                </td>
+                <td className="px-4 py-3 text-center font-bold text-app-text">
+                  {horse.horseNumberLabel}
+                </td>
                 <td className="px-4 py-3">
                   <div className="font-semibold text-app-text">{horse.name}</div>
                   <div className="mt-1 text-xs text-app-subtle">{horse.trainerLabel}</div>
@@ -50,7 +54,9 @@ export const HorseList = ({ horses }: HorseListProps) => {
                 >
                   <PopularityText label={horse.popularityLabel} />
                 </td>
-                <td className="px-4 py-3 pl-8 font-semibold text-app-text">{horse.oddsLabel}</td>
+                <td className="w-24 px-4 py-3 text-right font-semibold text-app-text">
+                  {horse.oddsLabel}
+                </td>
               </tr>
             ))}
           </tbody>

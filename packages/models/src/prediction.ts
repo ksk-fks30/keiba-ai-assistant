@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { betCandidateSchema } from "@keiba-ai-assistant/models/bet-candidate";
 import { horseEvaluationSchema } from "@keiba-ai-assistant/models/horse-evaluation";
+import { predictionReferencedLessonSchema } from "@keiba-ai-assistant/models/prediction-referenced-lesson";
 
 /** 予想結果モデル。レース全体の見立て、馬ごとの評価、買い目候補、生成情報を表す。 */
 export const predictionSchema = z.object({
@@ -12,6 +13,8 @@ export const predictionSchema = z.object({
   evaluations: z.array(horseEvaluationSchema),
   // 推奨する買い目候補。
   betCandidates: z.array(betCandidateSchema),
+  // 予想時に採用した過去の反省Lesson。旧形式のprediction.jsonでは空配列として扱う。
+  referencedLessons: z.array(predictionReferencedLessonSchema).default([]),
   // 予想を生成した日時。
   generatedAt: z.string()
 });

@@ -23,7 +23,8 @@ describe("parsePredictionDraft", () => {
           reason: "軸として最も安定している。",
           stakeWeight: 100
         }
-      ]
+      ],
+      referencedLessons: []
     };
 
     // Act

@@ -1,9 +1,14 @@
 import type { Command } from "commander";
 import { analyzeRace, type AnalyzeRaceInput } from "@keiba-ai-assistant/ai";
-import type { Prediction } from "@keiba-ai-assistant/models";
+import type { LessonEntry, Prediction } from "@keiba-ai-assistant/models";
 import {
+  buildLessonSearchInputFromRace,
+  buildPredictionLessonReferences,
+  recordPredictionLessonReferences,
   readPredictionPolicy,
   readRace,
+  searchLessonEntries,
+  type LessonStoreOptions,
   writePrediction,
   type PolicyStoreOptions,
   type RunStoreOptions
@@ -21,6 +26,8 @@ interface AnalyzeCommandOptions {
   policyPath?: string | undefined;
   /** runs ディレクトリのルートパス。 */
   runsDir?: string | undefined;
+  /** Lesson SQLite DBファイルのパス。 */
+  lessonDb?: string | undefined;
 }
 
 /** analyze コマンドのテスト差し替え用依存関係。 */
@@ -31,8 +38,12 @@ export interface AnalyzeCommandDependencies {
   readPredictionPolicy?: typeof readPredictionPolicy | undefined;
   /** 保存済みレース情報を読み込む関数。 */
   readRace?: typeof readRace | undefined;
+  /** 予想時に参照するLesson候補を検索する関数。 */
+  searchLessonEntries?: typeof searchLessonEntries | undefined;
   /** 分析結果を保存する関数。 */
   writePrediction?: typeof writePrediction | undefined;
+  /** 予想で採用したLesson参照履歴を保存する関数。 */
+  recordPredictionLessonReferences?: typeof recordPredictionLessonReferences | undefined;
   /** CLI にメッセージを出力する関数。 */
   log?: ((message: string) => void) | undefined;
 }
@@ -47,7 +58,10 @@ export const registerAnalyzeCommand = (
     analyzeRace: dependencies.analyzeRace ?? analyzeRace,
     readPredictionPolicy: dependencies.readPredictionPolicy ?? readPredictionPolicy,
     readRace: dependencies.readRace ?? readRace,
+    searchLessonEntries: dependencies.searchLessonEntries ?? searchLessonEntries,
     writePrediction: dependencies.writePrediction ?? writePrediction,
+    recordPredictionLessonReferences:
+      dependencies.recordPredictionLessonReferences ?? recordPredictionLessonReferences,
     log: dependencies.log ?? console.log
   };
 
@@ -60,18 +74,36 @@ export const registerAnalyzeCommand = (
     .option("--policy-dir <path>", "Prediction policy directory path")
     .option("--policy-path <path>", "Prediction policy file path (compatibility)")
     .option("--runs-dir <path>", "Runs root directory")
+    .option("--lesson-db <path>", "Lesson SQLite database path")
     .action(async (raceId: string | undefined, options: AnalyzeCommandOptions) => {
       // 分析は保存済み run と予想方針を入力にし、Codex にはファイル取得を任せない。
       const resolvedRaceId = resolveRaceId(raceId, options);
       const runStoreOptions = buildRunStoreOptions(options);
+      const lessonStoreOptions = buildLessonStoreOptions(options);
       deps.log(`保存済みレースを読み込んでいます: ${resolvedRaceId}`);
       const race = await deps.readRace(resolvedRaceId, runStoreOptions);
+      deps.log("過去の反省Lesson候補を検索しています。");
+      const lessonResults = await deps.searchLessonEntries(
+        buildLessonSearchInputFromRace(race),
+        lessonStoreOptions
+      );
+      const lessonCandidates = lessonResults.map((result) => result.lesson);
+      deps.log(`Lesson候補を ${lessonCandidates.length} 件見つけました。`);
       deps.log("予想方針を読み込んでいます。");
       const policy = await deps.readPredictionPolicy(buildPolicyStoreOptions(options));
       deps.log("Codexで予想分析を実行しています。");
-      const prediction = await deps.analyzeRace(buildAnalyzeRaceInput(race, policy, options));
+      const prediction = await deps.analyzeRace(
+        buildAnalyzeRaceInput(race, policy, options, lessonCandidates)
+      );
       deps.log("prediction.json を保存しています。");
       await deps.writePrediction(prediction, runStoreOptions);
+      if (prediction.referencedLessons.length > 0) {
+        deps.log("採用されたLesson参照履歴を保存しています。");
+        await deps.recordPredictionLessonReferences(
+          buildPredictionLessonReferences(prediction),
+          lessonStoreOptions
+        );
+      }
       deps.log(`prediction.json を保存しました: ${prediction.raceId}`);
     });
 };
@@ -100,6 +132,15 @@ const buildRunStoreOptions = (options: AnalyzeCommandOptions): RunStoreOptions =
   return { rootDir: options.runsDir };
 };
 
+/** CLI オプションからLesson DBの読み書き設定を組み立てる。 */
+const buildLessonStoreOptions = (options: AnalyzeCommandOptions): LessonStoreOptions => {
+  if (options.lessonDb === undefined) {
+    return {};
+  }
+
+  return { dbPath: options.lessonDb };
+};
+
 /** CLI オプションから予想方針の読み込み設定を組み立てる。 */
 const buildPolicyStoreOptions = (options: AnalyzeCommandOptions): PolicyStoreOptions => {
   if (options.policyDir !== undefined && options.policyPath !== undefined) {
@@ -119,11 +160,12 @@ const buildPolicyStoreOptions = (options: AnalyzeCommandOptions): PolicyStoreOpt
 const buildAnalyzeRaceInput = (
   race: Awaited<ReturnType<typeof readRace>>,
   policy: Awaited<ReturnType<typeof readPredictionPolicy>>,
-  options: AnalyzeCommandOptions
+  options: AnalyzeCommandOptions,
+  lessonCandidates: LessonEntry[]
 ) => {
   if (options.model === undefined) {
-    return { race, policy };
+    return { race, policy, lessonCandidates };
   }
 
-  return { race, policy, model: options.model };
+  return { race, policy, lessonCandidates, model: options.model };
 };

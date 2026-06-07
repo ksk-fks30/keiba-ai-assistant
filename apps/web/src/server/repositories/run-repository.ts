@@ -1,4 +1,10 @@
-import type { Prediction, QaEntry, Race } from "@keiba-ai-assistant/models";
+import type {
+  Prediction,
+  QaEntry,
+  Race,
+  RaceReflection,
+  RaceResult
+} from "@keiba-ai-assistant/models";
 import {
   appendQaEntry as appendStoredQaEntry,
   invalidateRunAnalysis,
@@ -6,8 +12,12 @@ import {
   readPrediction,
   readQaEntries,
   readRace,
+  readRaceReflection,
+  readRaceResult,
   writePrediction,
   writeRace,
+  writeRaceReflection,
+  writeRaceResult,
   type RunStoreOptions
 } from "@keiba-ai-assistant/storage";
 import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
@@ -22,6 +32,10 @@ export interface SavedRaceRun {
   hasPrediction: boolean;
   /** `qa.jsonl` が保存済みかどうか。 */
   hasQa: boolean;
+  /** `result.json` が保存済みかどうか。 */
+  hasResult: boolean;
+  /** `reflection.json` が保存済みかどうか。 */
+  hasReflection: boolean;
   /** run ディレクトリの最終更新日時。 */
   updatedAt: string;
 }
@@ -36,10 +50,18 @@ export interface RunRepository {
   findPredictionByRaceId: (raceId: string) => Promise<Prediction | null>;
   /** 指定race IDのQ&A履歴を返す。保存済みqa.jsonlがない場合は空配列を返す。 */
   findQaEntriesByRaceId: (raceId: string) => Promise<QaEntry[]>;
+  /** 指定race IDのRaceResultを返す。保存済みresult.jsonがない場合はnullを返す。 */
+  findRaceResultByRaceId: (raceId: string) => Promise<RaceResult | null>;
+  /** 指定race IDのRaceReflectionを返す。保存済みreflection.jsonがない場合はnullを返す。 */
+  findRaceReflectionByRaceId: (raceId: string) => Promise<RaceReflection | null>;
   /** Raceを対象runへ保存する。 */
   saveRace: (race: Race) => Promise<void>;
   /** Predictionを対象runへ保存する。 */
   savePrediction: (prediction: Prediction) => Promise<void>;
+  /** RaceResultを対象runへ保存する。 */
+  saveRaceResult: (result: RaceResult) => Promise<void>;
+  /** RaceReflectionを対象runへ保存する。 */
+  saveRaceReflection: (reflection: RaceReflection) => Promise<void>;
   /** 既存の分析結果とQ&A履歴を無効化する。 */
   invalidateAnalysis: (raceId: string) => Promise<void>;
   /** 指定race IDのQ&A履歴へ1件追記する。 */
@@ -65,6 +87,8 @@ export const createRunRepository = (options: CreateRunRepositoryOptions = {}): R
           race: summary.hasRace ? await readOptionalRace(summary.raceId, runStoreOptions) : null,
           hasPrediction: summary.hasPrediction,
           hasQa: summary.hasQa,
+          hasResult: summary.hasResult,
+          hasReflection: summary.hasReflection,
           updatedAt: summary.updatedAt
         }))
       );
@@ -94,11 +118,39 @@ export const createRunRepository = (options: CreateRunRepositoryOptions = {}): R
     findQaEntriesByRaceId: async (raceId) => {
       return await readQaEntries(raceId, runStoreOptions);
     },
+    findRaceResultByRaceId: async (raceId) => {
+      try {
+        return await readRaceResult(raceId, runStoreOptions);
+      } catch (error) {
+        if (isMissingFileError(error)) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    findRaceReflectionByRaceId: async (raceId) => {
+      try {
+        return await readRaceReflection(raceId, runStoreOptions);
+      } catch (error) {
+        if (isMissingFileError(error)) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
     saveRace: async (race) => {
       await writeRace(race, runStoreOptions);
     },
     savePrediction: async (prediction) => {
       await writePrediction(prediction, runStoreOptions);
+    },
+    saveRaceResult: async (result) => {
+      await writeRaceResult(result, runStoreOptions);
+    },
+    saveRaceReflection: async (reflection) => {
+      await writeRaceReflection(reflection, runStoreOptions);
     },
     invalidateAnalysis: async (raceId) => {
       await invalidateRunAnalysis(raceId, runStoreOptions);

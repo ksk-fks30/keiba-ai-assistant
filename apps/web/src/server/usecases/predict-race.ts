@@ -6,6 +6,7 @@ import {
 } from "@keiba-ai-assistant/ai";
 import {
   parseRace,
+  type LessonEntry,
   type Prediction,
   type Race,
   type RaceSourceSnapshot
@@ -16,6 +17,11 @@ import {
   type CollectRaceSnapshotInput,
   type WeatherProvider
 } from "@keiba-ai-assistant/scraper";
+import {
+  buildLessonSearchInputFromRace,
+  buildPredictionLessonReferences
+} from "@keiba-ai-assistant/storage";
+import type { LessonRepository } from "@keiba-ai-assistant/web/server/repositories/lesson-repository";
 import type { PolicyRepository } from "@keiba-ai-assistant/web/server/repositories/policy-repository";
 import type { RunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
 
@@ -49,6 +55,8 @@ export interface PredictRaceUseCaseResult {
 export interface PredictRaceUseCaseDependencies {
   /** 保存済みrunを更新するrepository。 */
   runRepository: RunRepository;
+  /** 反省Lessonを検索・参照記録するrepository。 */
+  lessonRepository: LessonRepository;
   /** 予想方針を取得するrepository。 */
   policyRepository: PolicyRepository;
   /** netKeiba レースページからsnapshotを取得する関数。 */
@@ -99,12 +107,27 @@ export const createPredictRaceUseCase = (
     reportProgress(input, "race.json を保存しています。");
     await dependencies.runRepository.saveRace(raceWithWeather);
 
+    reportProgress(input, "過去の反省Lesson候補を検索しています。");
+    const lessonResults = await dependencies.lessonRepository.searchLessonEntries(
+      buildLessonSearchInputFromRace(raceWithWeather)
+    );
+    throwIfAborted(input.signal);
+    const lessonCandidates = lessonResults.map((result) => result.lesson);
+    reportProgress(input, `Lesson候補を ${lessonCandidates.length} 件見つけました。`);
     reportProgress(input, "予想方針を読み込んでいます。");
     const policy = await dependencies.policyRepository.readPredictionPolicy();
     reportProgress(input, "Codexで予想分析を実行しています。");
-    const prediction = await analyzeRace(buildAnalyzeRaceInput(input, raceWithWeather, policy));
+    const prediction = await analyzeRace(
+      buildAnalyzeRaceInput(input, raceWithWeather, policy, lessonCandidates)
+    );
     reportProgress(input, "prediction.json を保存しています。");
     await dependencies.runRepository.savePrediction(prediction);
+    if (prediction.referencedLessons.length > 0) {
+      reportProgress(input, "採用されたLesson参照履歴を保存しています。");
+      await dependencies.lessonRepository.recordPredictionLessonReferences(
+        buildPredictionLessonReferences(prediction)
+      );
+    }
 
     return { raceId: raceWithWeather.id };
   };
@@ -212,11 +235,13 @@ const attachWeather = async (
 const buildAnalyzeRaceInput = (
   input: PredictRaceUseCaseInput,
   race: Race,
-  policy: AnalyzeRaceInput["policy"]
+  policy: AnalyzeRaceInput["policy"],
+  lessonCandidates: LessonEntry[]
 ): AnalyzeRaceInput => {
   const analyzeInput: AnalyzeRaceInput = {
     race,
     policy,
+    lessonCandidates,
     timeoutMs: input.analysisTimeoutMs ?? defaultAnalysisTimeoutMs
   };
   if (input.model !== undefined) {

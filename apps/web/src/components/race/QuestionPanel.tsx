@@ -1,6 +1,7 @@
 import { useForm } from "@inertiajs/react";
 import { SendHorizontal } from "lucide-react";
 import type { FormEvent, KeyboardEvent } from "react";
+import { Button } from "@keiba-ai-assistant/web/components/ui/Button";
 
 /** 追加質問フォームのprops。 */
 interface QuestionPanelProps {
@@ -76,15 +77,17 @@ export const QuestionPanel = ({ raceId, canAsk, askError }: QuestionPanelProps) 
             placeholder="展開、買い目、評価理由について聞く"
             className="block min-h-20 w-full resize-none rounded-md border border-app-border bg-white py-2 pr-12 pl-3 text-sm leading-relaxed text-app-text shadow-sm outline-none transition focus:border-info focus:ring-2 focus:ring-info-soft disabled:bg-app-muted disabled:text-app-subtle"
           />
-          <button
+          <Button
             type="submit"
             disabled={!canSubmit}
             aria-label="質問を送信"
             title="質問を送信"
-            className="absolute right-2 bottom-2 inline-flex size-8 items-center justify-center rounded-md bg-turf text-white shadow-sm transition hover:bg-turf-dark disabled:cursor-not-allowed disabled:bg-app-border disabled:text-app-subtle"
+            className="absolute right-2 bottom-2"
+            size="icon"
+            variant="primary"
           >
             <SendHorizontal aria-hidden="true" size={16} strokeWidth={2.25} />
-          </button>
+          </Button>
         </div>
         {form.errors.question !== undefined ? (
           <p className="mt-2 text-xs font-semibold text-rose-700">{form.errors.question}</p>

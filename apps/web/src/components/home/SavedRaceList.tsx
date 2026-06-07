@@ -1,25 +1,62 @@
 import { ArrowRight } from "lucide-react";
+import { useState } from "react";
+import {
+  createSavedRaceListView,
+  type SavedRaceRunView
+} from "@keiba-ai-assistant/web/components/home/saved-race-list-view";
+import { ButtonLink } from "@keiba-ai-assistant/web/components/ui/Button";
+import { Chip } from "@keiba-ai-assistant/web/components/ui/Chip";
+import { Select } from "@keiba-ai-assistant/web/components/ui/Select";
 import type { HomePageProps } from "@keiba-ai-assistant/web/server/usecases/show-home";
 
 /** トップ画面に表示する保存済みrunの一覧。 */
 export const SavedRaceList = ({ runs }: { runs: HomePageProps["runs"] }) => {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const view = createSavedRaceListView({ runs, selectedDate });
+
   return (
     <section className="rounded-panel border border-app-border bg-app-surface shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-app-border-soft px-5 py-4">
-        <div>
-          <p className="text-xs font-semibold text-app-subtle">runs</p>
-          <h2 className="mt-1 text-xl font-bold text-app-text">保存済みレース</h2>
+      <div className="border-b border-app-border-soft px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-app-subtle">runs</p>
+            <h2 className="mt-1 text-xl font-bold text-app-text">保存済みレース</h2>
+          </div>
+          <span className="text-sm font-semibold text-app-subtle">
+            {view.visibleCount}/{view.totalCount}件
+          </span>
         </div>
-        <span className="text-sm font-semibold text-app-subtle">{runs.length}件</span>
+        {view.dateOptions.length === 0 ? null : (
+          <Select
+            className="mt-4 max-w-56"
+            label="開催日"
+            onChange={(event) => {
+              setSelectedDate(event.currentTarget.value);
+            }}
+            value={view.selectedDate ?? ""}
+          >
+            {view.dateOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        )}
       </div>
       {runs.length === 0 ? (
         <div className="px-5 py-10">
           <p className="text-sm font-semibold text-app-text">保存済みレースはまだありません</p>
         </div>
+      ) : view.visibleRuns.length === 0 ? (
+        <div className="px-5 py-10">
+          <p className="text-sm font-semibold text-app-text">
+            選択した開催日の保存済みレースはありません
+          </p>
+        </div>
       ) : (
         <ol className="divide-y divide-app-border-soft">
-          {runs.map((run) => (
-            <li key={run.raceId}>
+          {view.visibleRuns.map((run) => (
+            <li key={run.run.raceId}>
               <SavedRunListItem run={run} />
             </li>
           ))}
@@ -30,38 +67,41 @@ export const SavedRaceList = ({ runs }: { runs: HomePageProps["runs"] }) => {
 };
 
 /** 保存済みrunを1行の一覧項目として表示する。 */
-const SavedRunListItem = ({ run }: { run: HomePageProps["runs"][number] }) => {
-  const race = run.race;
+const SavedRunListItem = ({ run }: { run: SavedRaceRunView }) => {
+  const savedRun = run.run;
+  const race = savedRun.race;
+  const raceHref = `/races/${encodeURIComponent(savedRun.raceId)}`;
 
   return (
     <div className="flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:justify-between">
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="truncate text-base font-bold text-app-text">{race?.name ?? run.raceId}</p>
-          <RunStatusLabel hasPrediction={run.hasPrediction} />
-          {run.hasQa ? (
-            <span className="rounded-md bg-info-soft px-2 py-0.5 text-xs font-bold text-info">
-              Q&A
-            </span>
-          ) : null}
+          {race === null ? (
+            <p className="truncate text-base font-bold text-app-text">{run.title}</p>
+          ) : (
+            <a
+              className="truncate text-base font-bold text-app-text transition hover:text-turf focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-turf"
+              href={raceHref}
+            >
+              {run.title}
+            </a>
+          )}
+          <RunStatusLabel hasPrediction={savedRun.hasPrediction} />
+          <ReflectionStatusLabel hasReflection={savedRun.hasReflection} />
+          {savedRun.hasQa ? <Chip variant="info">Q&A</Chip> : null}
         </div>
-        <p className="mt-1 text-sm text-app-subtle">
-          {race === null ? "race.json 未保存" : formatRaceSummary(race)}
-        </p>
+        <p className="mt-1 text-sm text-app-subtle">{run.summaryLabel}</p>
         <p className="mt-1 text-xs font-medium text-app-subtle">
-          更新 {formatDateTime(run.updatedAt)}
+          更新 {formatUpdatedAt(savedRun.updatedAt)}
         </p>
       </div>
       {race === null ? (
         <span className="text-sm font-semibold text-app-subtle">表示不可</span>
       ) : (
-        <a
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-app-border px-3 py-2 text-sm font-bold text-turf transition hover:bg-turf-soft"
-          href={`/races/${encodeURIComponent(run.raceId)}`}
-        >
+        <ButtonLink className="shrink-0" href={raceHref} variant="secondary" weight="bold">
           詳細
           <ArrowRight aria-hidden="true" size={16} />
-        </a>
+        </ButtonLink>
       )}
     </div>
   );
@@ -70,58 +110,23 @@ const SavedRunListItem = ({ run }: { run: HomePageProps["runs"][number] }) => {
 /** 保存済みrunの分析状態を短いラベルで表示する。 */
 const RunStatusLabel = ({ hasPrediction }: { hasPrediction: boolean }) => {
   return (
-    <span
-      className={
-        hasPrediction
-          ? "rounded-md bg-turf-soft px-2 py-0.5 text-xs font-bold text-turf"
-          : "rounded-md bg-app-muted px-2 py-0.5 text-xs font-bold text-app-subtle"
-      }
-    >
+    <Chip variant={hasPrediction ? "success" : "neutral"}>
       {hasPrediction ? "分析済み" : "未分析"}
-    </span>
+    </Chip>
   );
 };
 
-/** Race domain model から一覧に出す短いレース概要を作る。 */
-const formatRaceSummary = (race: NonNullable<HomePageProps["runs"][number]["race"]>): string => {
-  return [
-    race.racecourse,
-    `${formatSurface(race.surface)} ${race.distanceMeters}m`,
-    formatStartTime(race.startTime)
-  ]
-    .filter((value): value is string => value !== undefined && value.length > 0)
-    .join(" ・ ");
-};
-
-/** 開催日時を一覧表示用のラベル付き文字列へ変換する。 */
-const formatStartTime = (value: string | undefined): string | undefined => {
-  if (value === undefined) {
-    return undefined;
+/** 保存済みrunの振り返り済み状態を短いラベルで表示する。 */
+const ReflectionStatusLabel = ({ hasReflection }: { hasReflection: boolean }) => {
+  if (!hasReflection) {
+    return null;
   }
 
-  return `発走 ${formatDateTime(value)}`;
-};
-
-/** Race surface を画面表示ラベルへ変換する。 */
-const formatSurface = (
-  surface: NonNullable<HomePageProps["runs"][number]["race"]>["surface"]
-): string => {
-  const labels = {
-    turf: "芝",
-    dirt: "ダート",
-    jump: "障害",
-    unknown: "不明"
-  } as const;
-
-  return labels[surface];
+  return <Chip variant="success">振り返り済み</Chip>;
 };
 
 /** ISO日時文字列を YY/mm/dd HH:mm 形式へ変換する。 */
-const formatDateTime = (value: string | undefined): string => {
-  if (value === undefined) {
-    return "未取得";
-  }
-
+const formatUpdatedAt = (value: string): string => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;

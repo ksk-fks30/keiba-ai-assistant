@@ -1,4 +1,5 @@
 import {
+  type LessonEntry,
   parsePrediction,
   parsePredictionDraft,
   type Prediction,
@@ -26,6 +27,8 @@ export interface AnalyzeRaceInput {
   race: Race;
   /** ユーザーが管理する予想方針。 */
   policy: PredictionPolicy;
+  /** 予想時に参照候補として渡す承認済みLesson。 */
+  lessonCandidates?: LessonEntry[] | undefined;
   /** この分析で利用する Codex モデル名。 */
   model?: string;
   /** Codex SDK 実行を待つ最大時間。未指定の場合はタイムアウトしない。 */
@@ -40,7 +43,11 @@ export interface AnalyzeRaceInput {
 
 /** レースデータと予想方針を Codex に渡し、Prediction として検証済みの分析結果を返す。 */
 export const analyzeRace = async (input: AnalyzeRaceInput): Promise<Prediction> => {
-  const prompt = buildRaceAnalysisPrompt({ race: input.race, policy: input.policy });
+  const prompt = buildRaceAnalysisPrompt({
+    race: input.race,
+    policy: input.policy,
+    lessonCandidates: input.lessonCandidates ?? []
+  });
   const runtime = input.runtime ?? createCodexSdkRuntime(buildCodexSdkRuntimeOptions(input));
   const executionControl = createCodexExecutionControl({
     timeoutMs: input.timeoutMs,
@@ -62,7 +69,7 @@ export const analyzeRace = async (input: AnalyzeRaceInput): Promise<Prediction> 
     );
     const draft = parsePredictionDraft(value);
 
-    return buildPrediction(draft, buildGeneratedAt(input));
+    return buildPrediction(draft, buildGeneratedAt(input), input.lessonCandidates ?? []);
   } finally {
     executionControl.dispose();
   }
@@ -80,8 +87,31 @@ const buildCodexSdkRuntimeOptions = (input: AnalyzeRaceInput): CodexSdkRuntimeOp
 };
 
 /** AIの予想下書きにアプリ側の生成日時を付与し、保存用 Prediction にする。 */
-const buildPrediction = (draft: PredictionDraft, generatedAt: string): Prediction => {
+const buildPrediction = (
+  draft: PredictionDraft,
+  generatedAt: string,
+  lessonCandidates: LessonEntry[]
+): Prediction => {
+  assertReferencedLessonsAreCandidates(draft, lessonCandidates);
   return parsePrediction({ ...draft, generatedAt });
+};
+
+/** AIが候補外のLessonを参照していないか保存前に検証する。 */
+const assertReferencedLessonsAreCandidates = (
+  draft: PredictionDraft,
+  lessonCandidates: LessonEntry[]
+): void => {
+  const candidateIds = new Set(lessonCandidates.map((lesson) => lesson.id));
+  const unknownReferences = draft.referencedLessons.filter(
+    (reference) => !candidateIds.has(reference.lessonId)
+  );
+  if (unknownReferences.length > 0) {
+    throw new Error(
+      `候補外のLessonが予想結果に含まれています: ${unknownReferences
+        .map((reference) => reference.lessonId)
+        .join(", ")}`
+    );
+  }
 };
 
 /** 分析結果に記録する生成日時をISO 8601文字列で作る。 */

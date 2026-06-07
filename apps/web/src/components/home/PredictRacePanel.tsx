@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { PredictJobConsole } from "@keiba-ai-assistant/web/components/home/PredictJobConsole";
 import { PredictToastView } from "@keiba-ai-assistant/web/components/home/PredictToast";
 import { usePredictRaceJob } from "@keiba-ai-assistant/web/components/home/use-predict-race-job";
+import { Button } from "@keiba-ai-assistant/web/components/ui/Button";
 
 /** netKeiba URL入力からレース解析ジョブを開始し、進捗を表示するパネル。 */
 export const PredictRacePanel = () => {
@@ -39,11 +40,12 @@ export const PredictRacePanel = () => {
                 predictRaceJob.setRaceUrl(event.currentTarget.value);
               }}
             />
-            <button
+            <Button
               type="submit"
               disabled={!predictRaceJob.canSubmit}
-              className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md bg-turf px-3 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-turf-dark disabled:cursor-not-allowed disabled:bg-app-border disabled:text-app-subtle"
-              style={{ cursor: predictRaceJob.canSubmit ? "pointer" : "not-allowed" }}
+              className="shrink-0"
+              variant="primary"
+              weight="bold"
             >
               {predictRaceJob.isStartingJob || predictRaceJob.isJobActive ? (
                 <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
@@ -57,18 +59,19 @@ export const PredictRacePanel = () => {
                     ? "解析中"
                     : "開始"}
               </span>
-            </button>
+            </Button>
           </div>
           {predictRaceJob.isJobActive ? (
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button
+              <Button
                 type="button"
                 disabled={!predictRaceJob.canAbort}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-app-border disabled:bg-app-muted disabled:text-app-subtle"
-                style={{ cursor: predictRaceJob.canAbort ? "pointer" : "not-allowed" }}
                 onClick={async () => {
                   await predictRaceJob.abort();
                 }}
+                size="sm"
+                variant="danger"
+                weight="bold"
               >
                 {isStoppingJob ? (
                   <LoaderCircle aria-hidden="true" className="animate-spin" size={14} />
@@ -76,7 +79,7 @@ export const PredictRacePanel = () => {
                   <XCircle aria-hidden="true" size={14} />
                 )}
                 <span>{isStoppingJob ? "停止処理中" : "ジョブを中止"}</span>
-              </button>
+              </Button>
               {predictRaceJob.activeJobElapsedTimeLabel !== null ? (
                 <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-app-border bg-app-muted px-2.5 text-xs font-semibold text-app-subtle">
                   <Clock3 aria-hidden="true" size={14} />
