@@ -9,6 +9,8 @@ import {
   initializeHorseMemoDatabase,
   listHorseMemos,
   writeHorseMemo,
+  writeHorseMemoMark,
+  writeHorseMemoNote,
   type HorseMemoStoreOptions
 } from "@keiba-ai-assistant/storage/horse-memo-store";
 
@@ -158,6 +160,142 @@ describe("writeHorseMemo", () => {
     // Assert
     expect(saved).toEqual(memo);
     expect(actual).toEqual([memo]);
+  });
+});
+
+describe("writeHorseMemoMark", () => {
+  test("手動印だけを更新して既存テキストメモを維持する", async () => {
+    // Arrange
+    const options = await createTempHorseMemoStoreOptions();
+    const memo = createHorseMemo({
+      horseId: "fixture-horse-001",
+      mark: "◎",
+      note: "直線の伸びを確認する",
+      createdAt: "2026-06-07T12:00:00.000Z",
+      updatedAt: "2026-06-07T12:00:00.000Z"
+    });
+    await writeHorseMemo(memo, options);
+
+    // Act
+    const saved = await writeHorseMemoMark(
+      {
+        raceId: memo.raceId,
+        horseId: memo.horseId,
+        mark: "△",
+        createdAt: "2026-06-07T13:00:00.000Z",
+        updatedAt: "2026-06-07T13:00:00.000Z"
+      },
+      options
+    );
+    const actual = await listHorseMemos(memo.raceId, options);
+
+    // Assert
+    expect(saved).toEqual({
+      ...memo,
+      mark: "△",
+      updatedAt: "2026-06-07T13:00:00.000Z"
+    });
+    expect(actual).toEqual([saved]);
+  });
+
+  test("手動印を消しても既存テキストメモがあれば行を残す", async () => {
+    // Arrange
+    const options = await createTempHorseMemoStoreOptions();
+    const memo = createHorseMemo({
+      horseId: "fixture-horse-001",
+      mark: "◎",
+      note: "当日の気配だけ確認する"
+    });
+    await writeHorseMemo(memo, options);
+
+    // Act
+    const saved = await writeHorseMemoMark(
+      {
+        raceId: memo.raceId,
+        horseId: memo.horseId,
+        mark: null,
+        createdAt: "2026-06-07T13:00:00.000Z",
+        updatedAt: "2026-06-07T13:00:00.000Z"
+      },
+      options
+    );
+    const actual = await listHorseMemos(memo.raceId, options);
+
+    // Assert
+    expect(saved).toEqual({
+      ...memo,
+      mark: null,
+      updatedAt: "2026-06-07T13:00:00.000Z"
+    });
+    expect(actual).toEqual([saved]);
+  });
+});
+
+describe("writeHorseMemoNote", () => {
+  test("テキストメモだけを更新して既存手動印を維持する", async () => {
+    // Arrange
+    const options = await createTempHorseMemoStoreOptions();
+    const memo = createHorseMemo({
+      horseId: "fixture-horse-001",
+      mark: "◎",
+      note: "先行力を評価する",
+      createdAt: "2026-06-07T12:00:00.000Z",
+      updatedAt: "2026-06-07T12:00:00.000Z"
+    });
+    await writeHorseMemo(memo, options);
+
+    // Act
+    const saved = await writeHorseMemoNote(
+      {
+        raceId: memo.raceId,
+        horseId: memo.horseId,
+        note: "馬場が渋れば評価を上げる",
+        createdAt: "2026-06-07T13:00:00.000Z",
+        updatedAt: "2026-06-07T13:00:00.000Z"
+      },
+      options
+    );
+    const actual = await listHorseMemos(memo.raceId, options);
+
+    // Assert
+    expect(saved).toEqual({
+      ...memo,
+      note: "馬場が渋れば評価を上げる",
+      updatedAt: "2026-06-07T13:00:00.000Z"
+    });
+    expect(actual).toEqual([saved]);
+  });
+
+  test("テキストメモを消しても既存手動印があれば行を残す", async () => {
+    // Arrange
+    const options = await createTempHorseMemoStoreOptions();
+    const memo = createHorseMemo({
+      horseId: "fixture-horse-001",
+      mark: "☆",
+      note: "相手候補"
+    });
+    await writeHorseMemo(memo, options);
+
+    // Act
+    const saved = await writeHorseMemoNote(
+      {
+        raceId: memo.raceId,
+        horseId: memo.horseId,
+        note: "",
+        createdAt: "2026-06-07T13:00:00.000Z",
+        updatedAt: "2026-06-07T13:00:00.000Z"
+      },
+      options
+    );
+    const actual = await listHorseMemos(memo.raceId, options);
+
+    // Assert
+    expect(saved).toEqual({
+      ...memo,
+      note: "",
+      updatedAt: "2026-06-07T13:00:00.000Z"
+    });
+    expect(actual).toEqual([saved]);
   });
 });
 

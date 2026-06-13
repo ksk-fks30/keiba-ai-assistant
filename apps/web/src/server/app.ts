@@ -17,7 +17,10 @@ import { createPredictRaceJobStore } from "@keiba-ai-assistant/web/server/usecas
 import { createPredictRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/predict-race";
 import { createReflectRaceJobStore } from "@keiba-ai-assistant/web/server/usecases/reflect-race-job-store";
 import { createReflectRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/reflect-race";
-import { createSaveHorseMemoUseCase } from "@keiba-ai-assistant/web/server/usecases/save-horse-memo";
+import {
+  createSaveHorseMemoMarkUseCase,
+  createSaveHorseMemoNoteUseCase
+} from "@keiba-ai-assistant/web/server/usecases/save-horse-memo";
 import { createShowHomeUseCase } from "@keiba-ai-assistant/web/server/usecases/show-home";
 import { createShowRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/show-race";
 
@@ -45,7 +48,14 @@ const reflectRaceUseCase = createReflectRaceUseCase({
 });
 const reflectRaceJobStore = createReflectRaceJobStore({ reflectRaceUseCase });
 const approveLessonUseCase = createApproveLessonUseCase({ lessonRepository });
-const saveHorseMemoUseCase = createSaveHorseMemoUseCase({ runRepository, horseMemoRepository });
+const saveHorseMemoMarkUseCase = createSaveHorseMemoMarkUseCase({
+  runRepository,
+  horseMemoRepository
+});
+const saveHorseMemoNoteUseCase = createSaveHorseMemoNoteUseCase({
+  runRepository,
+  horseMemoRepository
+});
 
 export const app = new Hono();
 
@@ -63,7 +73,8 @@ app.route(
     showRaceUseCase,
     reflectRaceJobStore,
     approveLessonUseCase,
-    saveHorseMemoUseCase
+    saveHorseMemoMarkUseCase,
+    saveHorseMemoNoteUseCase
   })
 );
 app.route("/", collectRoutes);

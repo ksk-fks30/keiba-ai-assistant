@@ -13,7 +13,9 @@ export {
   getDefaultHorseMemoDatabasePath,
   initializeHorseMemoDatabase,
   listHorseMemos,
-  writeHorseMemo
+  writeHorseMemo,
+  writeHorseMemoMark,
+  writeHorseMemoNote
 } from "@keiba-ai-assistant/storage/horse-memo-store";
 export {
   getDefaultLessonDatabasePath,
@@ -44,7 +46,11 @@ export {
   writeRaceResult
 } from "@keiba-ai-assistant/storage/run-store";
 export type { CacheStoreOptions } from "@keiba-ai-assistant/storage/cache-store";
-export type { HorseMemoStoreOptions } from "@keiba-ai-assistant/storage/horse-memo-store";
+export type {
+  HorseMemoStoreOptions,
+  WriteHorseMemoMarkInput,
+  WriteHorseMemoNoteInput
+} from "@keiba-ai-assistant/storage/horse-memo-store";
 export type {
   LessonSearchInput,
   LessonSearchResult,

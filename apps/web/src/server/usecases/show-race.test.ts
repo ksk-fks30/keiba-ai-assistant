@@ -337,6 +337,12 @@ const createUnusedHorseMemoRepositoryMethods = () => {
     saveHorseMemo: async () => {
       throw new Error("詳細表示では出走馬メモを保存しない");
     },
+    saveHorseMemoMark: async () => {
+      throw new Error("詳細表示では出走馬メモの手動印を保存しない");
+    },
+    saveHorseMemoNote: async () => {
+      throw new Error("詳細表示では出走馬メモの本文を保存しない");
+    },
     deleteHorseMemo: async () => {
       throw new Error("詳細表示では出走馬メモを削除しない");
     }

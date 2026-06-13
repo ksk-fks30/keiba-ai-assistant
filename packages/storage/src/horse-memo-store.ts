@@ -42,6 +42,34 @@ export interface HorseMemoStoreOptions {
   dbPath?: string;
 }
 
+/** 出走馬メモの印だけを保存する入力。 */
+export interface WriteHorseMemoMarkInput {
+  /** URLパラメータで指定されたrace ID。 */
+  raceId: string;
+  /** 印を保存する馬ID。 */
+  horseId: string;
+  /** 保存する手動印。未選択の場合はnull。 */
+  mark: HorseMemoMark | null;
+  /** 新規行を作る場合の作成日時。 */
+  createdAt: string;
+  /** 更新日時。 */
+  updatedAt: string;
+}
+
+/** 出走馬メモの本文だけを保存する入力。 */
+export interface WriteHorseMemoNoteInput {
+  /** URLパラメータで指定されたrace ID。 */
+  raceId: string;
+  /** メモ本文を保存する馬ID。 */
+  horseId: string;
+  /** 保存するテキストメモ。空文字の場合は本文なしとして扱う。 */
+  note: string;
+  /** 新規行を作る場合の作成日時。 */
+  createdAt: string;
+  /** 更新日時。 */
+  updatedAt: string;
+}
+
 interface SchemaMigration {
   /** migrationを一意に識別する連番。 */
   version: number;
@@ -212,6 +240,102 @@ export const writeHorseMemo = async (
   });
 };
 
+/** 出走馬メモの手動印だけを保存する。既存のテキストメモは維持する。 */
+export const writeHorseMemoMark = async (
+  input: WriteHorseMemoMarkInput,
+  options: HorseMemoStoreOptions = {}
+): Promise<HorseMemo | null> => {
+  return withDatabase(options, (database) => {
+    const existing = findHorseMemoRow(database, input.raceId, input.horseId);
+    if (input.mark === null && (existing === undefined || existing.note.length === 0)) {
+      deleteHorseMemoRow(database, input.raceId, input.horseId);
+      return null;
+    }
+
+    if (existing === undefined) {
+      database
+        .prepare(
+          `
+            INSERT INTO horse_memos (
+              race_id,
+              horse_id,
+              mark,
+              note,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+          `
+        )
+        .run(input.raceId, input.horseId, input.mark, "", input.createdAt, input.updatedAt);
+    } else {
+      database
+        .prepare(
+          `
+            UPDATE horse_memos
+            SET mark = ?, updated_at = ?
+            WHERE race_id = ? AND horse_id = ?
+          `
+        )
+        .run(input.mark, input.updatedAt, input.raceId, input.horseId);
+    }
+
+    const stored = findHorseMemoRow(database, input.raceId, input.horseId);
+    if (stored === undefined) {
+      throw new Error(`出走馬メモを保存できませんでした: ${input.raceId}/${input.horseId}`);
+    }
+
+    return rowToHorseMemo(stored);
+  });
+};
+
+/** 出走馬メモのテキスト本文だけを保存する。既存の手動印は維持する。 */
+export const writeHorseMemoNote = async (
+  input: WriteHorseMemoNoteInput,
+  options: HorseMemoStoreOptions = {}
+): Promise<HorseMemo | null> => {
+  return withDatabase(options, (database) => {
+    const existing = findHorseMemoRow(database, input.raceId, input.horseId);
+    if (input.note.length === 0 && (existing === undefined || existing.mark === null)) {
+      deleteHorseMemoRow(database, input.raceId, input.horseId);
+      return null;
+    }
+
+    if (existing === undefined) {
+      database
+        .prepare(
+          `
+            INSERT INTO horse_memos (
+              race_id,
+              horse_id,
+              mark,
+              note,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+          `
+        )
+        .run(input.raceId, input.horseId, null, input.note, input.createdAt, input.updatedAt);
+    } else {
+      database
+        .prepare(
+          `
+            UPDATE horse_memos
+            SET note = ?, updated_at = ?
+            WHERE race_id = ? AND horse_id = ?
+          `
+        )
+        .run(input.note, input.updatedAt, input.raceId, input.horseId);
+    }
+
+    const stored = findHorseMemoRow(database, input.raceId, input.horseId);
+    if (stored === undefined) {
+      throw new Error(`出走馬メモを保存できませんでした: ${input.raceId}/${input.horseId}`);
+    }
+
+    return rowToHorseMemo(stored);
+  });
+};
+
 /** 指定race IDと馬IDの出走馬メモを削除する。 */
 export const deleteHorseMemo = async (
   raceId: string,
@@ -219,10 +343,29 @@ export const deleteHorseMemo = async (
   options: HorseMemoStoreOptions = {}
 ): Promise<void> => {
   withDatabase(options, (database) => {
-    database
-      .prepare("DELETE FROM horse_memos WHERE race_id = ? AND horse_id = ?")
-      .run(raceId, horseId);
+    deleteHorseMemoRow(database, raceId, horseId);
   });
+};
+
+const findHorseMemoRow = (
+  database: SqliteDatabase,
+  raceId: string,
+  horseId: string
+): HorseMemoRow | undefined => {
+  return database
+    .prepare<HorseMemoRow>(
+      `
+        SELECT * FROM horse_memos
+        WHERE race_id = ? AND horse_id = ?
+      `
+    )
+    .get(raceId, horseId);
+};
+
+const deleteHorseMemoRow = (database: SqliteDatabase, raceId: string, horseId: string): void => {
+  database
+    .prepare("DELETE FROM horse_memos WHERE race_id = ? AND horse_id = ?")
+    .run(raceId, horseId);
 };
 
 const withDatabase = <Result>(

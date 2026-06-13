@@ -1,29 +1,31 @@
 import { describe, expect, test } from "vitest";
 import type { HorseMemo, LessonEntry } from "@keiba-ai-assistant/models";
 import { createRaceRoutes } from "@keiba-ai-assistant/web/server/routes/races";
-import type { SaveHorseMemoInput } from "@keiba-ai-assistant/web/server/usecases/save-horse-memo";
+import type {
+  SaveHorseMemoMarkInput,
+  SaveHorseMemoNoteInput
+} from "@keiba-ai-assistant/web/server/usecases/save-horse-memo";
 
 describe("createRaceRoutes", () => {
-  test("JSONの出走馬メモをusecaseへ渡して保存結果を返す", async () => {
+  test("JSONの手動印をmark保存usecaseへ渡して保存結果を返す", async () => {
     // Arrange
     const raceId = "fixture-race";
-    let actualInput: SaveHorseMemoInput | null = null;
+    let actualInput: SaveHorseMemoMarkInput | null = null;
     const routes = createRaceRoutes({
       ...createUnusedRaceRouteDependencies(),
-      saveHorseMemoUseCase: async (input) => {
+      saveHorseMemoMarkUseCase: async (input) => {
         actualInput = input;
-        return createHorseMemo(input.raceId, input.horseId, input.mark, input.note);
+        return createHorseMemo(input.raceId, input.horseId, input.mark, "");
       }
     });
 
     // Act
-    const response = await routes.request(`/races/${raceId}/horse-memos`, {
+    const response = await routes.request(`/races/${raceId}/horse-memos/mark`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         horseId: "fixture-horse-001",
-        mark: "◯",
-        note: "返し馬を確認する"
+        mark: "◯"
       })
     });
     const actual = (await response.json()) as { memo: HorseMemo };
@@ -33,30 +35,28 @@ describe("createRaceRoutes", () => {
     expect(actualInput).toEqual({
       raceId,
       horseId: "fixture-horse-001",
-      mark: "◯",
-      note: "返し馬を確認する"
+      mark: "◯"
     });
     expect(actual.memo.mark).toBe("◯");
-    expect(actual.memo.note).toBe("返し馬を確認する");
   });
 
-  test("markがnullかつnoteが空の場合は削除入力としてusecaseへ渡す", async () => {
+  test("nullの手動印をmark保存usecaseへ渡せる", async () => {
     // Arrange
     const raceId = "fixture-race";
-    let actualInput: SaveHorseMemoInput | null = null;
+    let actualInput: SaveHorseMemoMarkInput | null = null;
     const routes = createRaceRoutes({
       ...createUnusedRaceRouteDependencies(),
-      saveHorseMemoUseCase: async (input) => {
+      saveHorseMemoMarkUseCase: async (input) => {
         actualInput = input;
         return null;
       }
     });
 
     // Act
-    const response = await routes.request(`/races/${raceId}/horse-memos`, {
+    const response = await routes.request(`/races/${raceId}/horse-memos/mark`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ horseId: "fixture-horse-001", mark: null, note: "" })
+      body: JSON.stringify({ horseId: "fixture-horse-001", mark: null })
     });
     const actual = (await response.json()) as { memo: HorseMemo | null };
 
@@ -65,32 +65,30 @@ describe("createRaceRoutes", () => {
     expect(actualInput).toEqual({
       raceId,
       horseId: "fixture-horse-001",
-      mark: null,
-      note: ""
+      mark: null
     });
     expect(actual.memo).toBeNull();
   });
 
-  test("テキストだけの出走馬メモをusecaseへ渡せる", async () => {
+  test("JSONのテキストメモをnote保存usecaseへ渡して保存結果を返す", async () => {
     // Arrange
     const raceId = "fixture-race";
-    let actualInput: SaveHorseMemoInput | null = null;
+    let actualInput: SaveHorseMemoNoteInput | null = null;
     const routes = createRaceRoutes({
       ...createUnusedRaceRouteDependencies(),
-      saveHorseMemoUseCase: async (input) => {
+      saveHorseMemoNoteUseCase: async (input) => {
         actualInput = input;
-        return createHorseMemo(input.raceId, input.horseId, input.mark, input.note);
+        return createHorseMemo(input.raceId, input.horseId, null, input.note);
       }
     });
 
     // Act
-    const response = await routes.request(`/races/${raceId}/horse-memos`, {
+    const response = await routes.request(`/races/${raceId}/horse-memos/note`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         horseId: "fixture-horse-001",
-        mark: null,
-        note: "馬場が渋れば相手候補"
+        note: "  返し馬を確認する  "
       })
     });
     const actual = (await response.json()) as { memo: HorseMemo };
@@ -100,10 +98,9 @@ describe("createRaceRoutes", () => {
     expect(actualInput).toEqual({
       raceId,
       horseId: "fixture-horse-001",
-      mark: null,
-      note: "馬場が渋れば相手候補"
+      note: "返し馬を確認する"
     });
-    expect(actual.memo.note).toBe("馬場が渋れば相手候補");
+    expect(actual.memo.note).toBe("返し馬を確認する");
   });
 
   test("未定義の印は400を返す", async () => {
@@ -111,10 +108,25 @@ describe("createRaceRoutes", () => {
     const routes = createRaceRoutes(createUnusedRaceRouteDependencies());
 
     // Act
-    const response = await routes.request("/races/fixture-race/horse-memos", {
+    const response = await routes.request("/races/fixture-race/horse-memos/mark", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ horseId: "fixture-horse-001", mark: "注", note: "" })
+      body: JSON.stringify({ horseId: "fixture-horse-001", mark: "注" })
+    });
+
+    // Assert
+    expect(response.status).toBe(400);
+  });
+
+  test("文字列以外のテキストメモは400を返す", async () => {
+    // Arrange
+    const routes = createRaceRoutes(createUnusedRaceRouteDependencies());
+
+    // Act
+    const response = await routes.request("/races/fixture-race/horse-memos/note", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ horseId: "fixture-horse-001", note: null })
     });
 
     // Assert
@@ -139,8 +151,11 @@ const createUnusedRaceRouteDependencies = (): Parameters<typeof createRaceRoutes
     approveLessonUseCase: async (): Promise<LessonEntry> => {
       throw new Error("出走馬メモrouteではLessonを採用しない");
     },
-    saveHorseMemoUseCase: async () => {
-      throw new Error("テストで差し替えていない出走馬メモ保存が呼ばれました");
+    saveHorseMemoMarkUseCase: async () => {
+      throw new Error("テストで差し替えていない手動印保存が呼ばれました");
+    },
+    saveHorseMemoNoteUseCase: async () => {
+      throw new Error("テストで差し替えていない本文保存が呼ばれました");
     }
   };
 };

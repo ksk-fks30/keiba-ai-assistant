@@ -5,7 +5,10 @@ import {
   isReflectRaceJobAlreadyRunningError,
   type ReflectRaceJobStore
 } from "@keiba-ai-assistant/web/server/usecases/reflect-race-job-store";
-import type { SaveHorseMemoUseCase } from "@keiba-ai-assistant/web/server/usecases/save-horse-memo";
+import type {
+  SaveHorseMemoMarkUseCase,
+  SaveHorseMemoNoteUseCase
+} from "@keiba-ai-assistant/web/server/usecases/save-horse-memo";
 import type { ShowRaceUseCase } from "@keiba-ai-assistant/web/server/usecases/show-race";
 
 /** race route の依存関係。 */
@@ -16,8 +19,10 @@ export interface RaceRoutesDependencies {
   reflectRaceJobStore: ReflectRaceJobStore;
   /** Lessonを採用状態へ更新するusecase。 */
   approveLessonUseCase: ApproveLessonUseCase;
-  /** 出走馬メモを保存または削除するusecase。 */
-  saveHorseMemoUseCase: SaveHorseMemoUseCase;
+  /** 出走馬メモの手動印を保存するusecase。 */
+  saveHorseMemoMarkUseCase: SaveHorseMemoMarkUseCase;
+  /** 出走馬メモのテキスト本文を保存するusecase。 */
+  saveHorseMemoNoteUseCase: SaveHorseMemoNoteUseCase;
 }
 
 /** usecaseを注入してrace関連routeを作る。 */
@@ -39,20 +44,45 @@ export const createRaceRoutes = (dependencies: RaceRoutesDependencies): Hono => 
     return c.render("races/Show", props);
   });
 
-  raceRoutes.post("/races/:raceId/horse-memos", async (c) => {
+  raceRoutes.post("/races/:raceId/horse-memos/mark", async (c) => {
     const raceId = c.req.param("raceId");
-    let input: HorseMemoRequestInput;
+    let input: HorseMemoMarkRequestInput;
     try {
-      input = parseHorseMemoRequest(await c.req.json());
+      input = parseHorseMemoMarkRequest(await c.req.json());
     } catch {
       return c.json({ error: "出走馬メモの入力が不正です。" }, 400);
     }
 
     try {
-      const memo = await dependencies.saveHorseMemoUseCase({
+      const memo = await dependencies.saveHorseMemoMarkUseCase({
         raceId,
         horseId: input.horseId,
-        mark: input.mark,
+        mark: input.mark
+      });
+
+      return c.json({ memo });
+    } catch (error) {
+      if (isHorseMemoNotFoundError(error)) {
+        return c.json({ error: error.message }, 404);
+      }
+
+      throw error;
+    }
+  });
+
+  raceRoutes.post("/races/:raceId/horse-memos/note", async (c) => {
+    const raceId = c.req.param("raceId");
+    let input: HorseMemoNoteRequestInput;
+    try {
+      input = parseHorseMemoNoteRequest(await c.req.json());
+    } catch {
+      return c.json({ error: "出走馬メモの入力が不正です。" }, 400);
+    }
+
+    try {
+      const memo = await dependencies.saveHorseMemoNoteUseCase({
+        raceId,
+        horseId: input.horseId,
         note: input.note
       });
 
@@ -102,44 +132,61 @@ export const createRaceRoutes = (dependencies: RaceRoutesDependencies): Hono => 
   return raceRoutes;
 };
 
-interface HorseMemoRequestInput {
+interface HorseMemoMarkRequestInput {
   /** 印を付ける馬ID。 */
   horseId: string;
   /** 保存する手動印。未選択の場合はnull。 */
   mark: HorseMemoMark | null;
+}
+
+interface HorseMemoNoteRequestInput {
+  /** メモ本文を保存する馬ID。 */
+  horseId: string;
   /** 保存するテキストメモ。 */
   note: string;
 }
 
-/** JSON bodyから出走馬メモ保存に必要な値だけを取り出す。 */
-const parseHorseMemoRequest = (value: unknown): HorseMemoRequestInput => {
+/** JSON bodyから出走馬メモの手動印保存に必要な値だけを取り出す。 */
+const parseHorseMemoMarkRequest = (value: unknown): HorseMemoMarkRequestInput => {
   if (!isRecord(value)) {
     throw new Error("request body is not object");
   }
   if (typeof value.horseId !== "string" || value.horseId.length === 0) {
     throw new Error("horseId is required");
   }
-  const note = parseHorseMemoNote(value.note);
-  if (value.mark === null || value.mark === undefined) {
+  if (value.mark === null) {
     return {
       horseId: value.horseId,
-      mark: null,
-      note
+      mark: null
     };
+  }
+  if (value.mark === undefined) {
+    throw new Error("mark is required");
   }
 
   return {
     horseId: value.horseId,
-    mark: horseMemoMarkSchema.parse(value.mark),
-    note
+    mark: horseMemoMarkSchema.parse(value.mark)
+  };
+};
+
+/** JSON bodyから出走馬メモのテキスト本文保存に必要な値だけを取り出す。 */
+const parseHorseMemoNoteRequest = (value: unknown): HorseMemoNoteRequestInput => {
+  if (!isRecord(value)) {
+    throw new Error("request body is not object");
+  }
+  if (typeof value.horseId !== "string" || value.horseId.length === 0) {
+    throw new Error("horseId is required");
+  }
+
+  return {
+    horseId: value.horseId,
+    note: parseHorseMemoNote(value.note)
   };
 };
 
 /** request bodyのテキストメモを保存用文字列へ正規化する。 */
 const parseHorseMemoNote = (value: unknown): string => {
-  if (value === undefined) {
-    return "";
-  }
   if (typeof value !== "string") {
     throw new Error("note must be string");
   }

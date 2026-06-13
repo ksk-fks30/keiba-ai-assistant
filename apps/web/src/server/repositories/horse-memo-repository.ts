@@ -3,6 +3,10 @@ import {
   deleteHorseMemo as deleteStoredHorseMemo,
   listHorseMemos,
   writeHorseMemo,
+  writeHorseMemoMark,
+  writeHorseMemoNote,
+  type WriteHorseMemoMarkInput,
+  type WriteHorseMemoNoteInput,
   type HorseMemoStoreOptions
 } from "@keiba-ai-assistant/storage";
 
@@ -12,6 +16,10 @@ export interface HorseMemoRepository {
   findHorseMemosByRaceId: (raceId: string) => Promise<HorseMemo[]>;
   /** 出走馬メモをSQLiteへ保存する。 */
   saveHorseMemo: (memo: HorseMemo) => Promise<HorseMemo>;
+  /** 出走馬メモの手動印だけをSQLiteへ保存する。 */
+  saveHorseMemoMark: (input: WriteHorseMemoMarkInput) => Promise<HorseMemo | null>;
+  /** 出走馬メモのテキスト本文だけをSQLiteへ保存する。 */
+  saveHorseMemoNote: (input: WriteHorseMemoNoteInput) => Promise<HorseMemo | null>;
   /** 指定race IDと馬IDの出走馬メモを削除する。 */
   deleteHorseMemo: (raceId: string, horseId: string) => Promise<void>;
 }
@@ -34,6 +42,12 @@ export const createHorseMemoRepository = (
     },
     saveHorseMemo: async (memo) => {
       return await writeHorseMemo(memo, horseMemoStoreOptions);
+    },
+    saveHorseMemoMark: async (input) => {
+      return await writeHorseMemoMark(input, horseMemoStoreOptions);
+    },
+    saveHorseMemoNote: async (input) => {
+      return await writeHorseMemoNote(input, horseMemoStoreOptions);
     },
     deleteHorseMemo: async (raceId, horseId) => {
       await deleteStoredHorseMemo(raceId, horseId, horseMemoStoreOptions);

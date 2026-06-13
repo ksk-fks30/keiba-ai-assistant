@@ -53,28 +53,23 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
   }, [horseMemos]);
 
   const aiMarkByHorseId = buildAiMarkByHorseId(prediction);
-  const saveHorseMemo = async (
+  const saveHorseMemoMark = async (
     horseId: string,
-    nextMark: HorseMemoMark | null,
-    nextNote: string,
-    rollbackNoteOnFailure: boolean
+    nextMark: HorseMemoMark | null
   ): Promise<void> => {
     const previousMark = manualMarkByHorseId.get(horseId) ?? null;
-    const previousDraftNote = manualNoteByHorseId.get(horseId) ?? "";
-    const previousPersistedNote = persistedNoteByHorseId.get(horseId) ?? "";
     setSaveError(null);
     setSavingHorseIds((current) => addSavingHorseId(current, horseId));
     setManualMarkByHorseId((current) => setHorseMark(current, horseId, nextMark));
-    setManualNoteByHorseId((current) => setHorseNote(current, horseId, nextNote));
 
     try {
-      const response = await fetch(`/races/${encodeURIComponent(raceId)}/horse-memos`, {
+      const response = await fetch(`/races/${encodeURIComponent(raceId)}/horse-memos/mark`, {
         method: "POST",
         headers: {
           accept: "application/json",
           "content-type": "application/json"
         },
-        body: JSON.stringify({ horseId, mark: nextMark, note: nextNote })
+        body: JSON.stringify({ horseId, mark: nextMark })
       });
       const payload = await readSaveHorseMemoResponse(response);
       if (!response.ok) {
@@ -84,36 +79,47 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
       setManualMarkByHorseId((current) =>
         setHorseMark(current, horseId, payload.memo?.mark ?? null)
       );
-      setManualNoteByHorseId((current) => setHorseNote(current, horseId, payload.memo?.note ?? ""));
-      setPersistedNoteByHorseId((current) =>
-        setHorseNote(current, horseId, payload.memo?.note ?? "")
-      );
     } catch {
       setManualMarkByHorseId((current) => setHorseMark(current, horseId, previousMark));
-      setManualNoteByHorseId((current) =>
-        setHorseNote(
-          current,
-          horseId,
-          rollbackNoteOnFailure ? previousPersistedNote : previousDraftNote
-        )
-      );
       setSaveError("メモを保存できませんでした。");
     } finally {
       setSavingHorseIds((current) => removeSavingHorseId(current, horseId));
     }
-  };
-  const saveHorseMemoMark = async (
-    horseId: string,
-    nextMark: HorseMemoMark | null
-  ): Promise<void> => {
-    await saveHorseMemo(horseId, nextMark, manualNoteByHorseId.get(horseId) ?? "", false);
   };
   const saveHorseMemoNote = async (horseId: string, nextNote: string): Promise<void> => {
     if (nextNote === (persistedNoteByHorseId.get(horseId) ?? "")) {
       return;
     }
 
-    await saveHorseMemo(horseId, manualMarkByHorseId.get(horseId) ?? null, nextNote, true);
+    const previousPersistedNote = persistedNoteByHorseId.get(horseId) ?? "";
+    setSaveError(null);
+    setSavingHorseIds((current) => addSavingHorseId(current, horseId));
+    setManualNoteByHorseId((current) => setHorseNote(current, horseId, nextNote));
+
+    try {
+      const response = await fetch(`/races/${encodeURIComponent(raceId)}/horse-memos/note`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ horseId, note: nextNote })
+      });
+      const payload = await readSaveHorseMemoResponse(response);
+      if (!response.ok) {
+        throw new Error(payload.error ?? "メモを保存できませんでした。");
+      }
+
+      setManualNoteByHorseId((current) => setHorseNote(current, horseId, payload.memo?.note ?? ""));
+      setPersistedNoteByHorseId((current) =>
+        setHorseNote(current, horseId, payload.memo?.note ?? "")
+      );
+    } catch {
+      setManualNoteByHorseId((current) => setHorseNote(current, horseId, previousPersistedNote));
+      setSaveError("メモを保存できませんでした。");
+    } finally {
+      setSavingHorseIds((current) => removeSavingHorseId(current, horseId));
+    }
   };
 
   return (
