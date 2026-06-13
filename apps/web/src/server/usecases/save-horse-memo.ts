@@ -8,8 +8,10 @@ export interface SaveHorseMemoInput {
   raceId: string;
   /** 印を付ける馬ID。 */
   horseId: string;
-  /** 保存する手動印。nullの場合は既存メモを削除する。 */
+  /** 保存する手動印。未選択の場合はnull。 */
   mark: HorseMemoMark | null;
+  /** 保存するテキストメモ。空文字の場合はメモ本文なしとして扱う。 */
+  note: string;
 }
 
 /** 出走馬メモ保存usecaseの依存関係。 */
@@ -40,7 +42,7 @@ export const createSaveHorseMemoUseCase = (
       throw new Error(`出走馬が見つかりません: ${input.raceId}/${input.horseId}`);
     }
 
-    if (input.mark === null) {
+    if (input.mark === null && input.note.length === 0) {
       await dependencies.horseMemoRepository.deleteHorseMemo(input.raceId, input.horseId);
       return null;
     }
@@ -50,6 +52,7 @@ export const createSaveHorseMemoUseCase = (
       raceId: input.raceId,
       horseId: input.horseId,
       mark: input.mark,
+      note: input.note,
       createdAt: timestamp,
       updatedAt: timestamp
     });

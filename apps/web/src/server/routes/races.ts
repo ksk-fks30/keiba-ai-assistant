@@ -52,7 +52,8 @@ export const createRaceRoutes = (dependencies: RaceRoutesDependencies): Hono => 
       const memo = await dependencies.saveHorseMemoUseCase({
         raceId,
         horseId: input.horseId,
-        mark: input.mark
+        mark: input.mark,
+        note: input.note
       });
 
       return c.json({ memo });
@@ -104,8 +105,10 @@ export const createRaceRoutes = (dependencies: RaceRoutesDependencies): Hono => 
 interface HorseMemoRequestInput {
   /** 印を付ける馬ID。 */
   horseId: string;
-  /** 保存する手動印。nullの場合は既存メモを削除する。 */
+  /** 保存する手動印。未選択の場合はnull。 */
   mark: HorseMemoMark | null;
+  /** 保存するテキストメモ。 */
+  note: string;
 }
 
 /** JSON bodyから出走馬メモ保存に必要な値だけを取り出す。 */
@@ -116,17 +119,32 @@ const parseHorseMemoRequest = (value: unknown): HorseMemoRequestInput => {
   if (typeof value.horseId !== "string" || value.horseId.length === 0) {
     throw new Error("horseId is required");
   }
-  if (value.mark === null) {
+  const note = parseHorseMemoNote(value.note);
+  if (value.mark === null || value.mark === undefined) {
     return {
       horseId: value.horseId,
-      mark: null
+      mark: null,
+      note
     };
   }
 
   return {
     horseId: value.horseId,
-    mark: horseMemoMarkSchema.parse(value.mark)
+    mark: horseMemoMarkSchema.parse(value.mark),
+    note
   };
+};
+
+/** request bodyのテキストメモを保存用文字列へ正規化する。 */
+const parseHorseMemoNote = (value: unknown): string => {
+  if (value === undefined) {
+    return "";
+  }
+  if (typeof value !== "string") {
+    throw new Error("note must be string");
+  }
+
+  return value.trim();
 };
 
 /** unknownが文字列キーを持つobjectかどうかを判定する。 */

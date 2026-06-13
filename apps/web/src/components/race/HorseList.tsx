@@ -13,6 +13,7 @@ import {
   MenuSelect,
   type MenuSelectOption
 } from "@keiba-ai-assistant/web/components/ui/MenuSelect";
+import { TextInput } from "@keiba-ai-assistant/web/components/ui/TextInput";
 import type {
   HorseDashboardView,
   PastPerformanceDashboardView
@@ -35,22 +36,36 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
   const [manualMarkByHorseId, setManualMarkByHorseId] = useState(() =>
     buildManualMarkByHorseId(horseMemos)
   );
+  const [manualNoteByHorseId, setManualNoteByHorseId] = useState(() =>
+    buildManualNoteByHorseId(horseMemos)
+  );
+  const [persistedNoteByHorseId, setPersistedNoteByHorseId] = useState(() =>
+    buildManualNoteByHorseId(horseMemos)
+  );
   const [savingHorseIds, setSavingHorseIds] = useState<Set<string>>(() => new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setManualMarkByHorseId(buildManualMarkByHorseId(horseMemos));
+    const noteByHorseId = buildManualNoteByHorseId(horseMemos);
+    setManualNoteByHorseId(noteByHorseId);
+    setPersistedNoteByHorseId(noteByHorseId);
   }, [horseMemos]);
 
   const aiMarkByHorseId = buildAiMarkByHorseId(prediction);
-  const saveHorseMemoMark = async (
+  const saveHorseMemo = async (
     horseId: string,
-    nextMark: HorseMemoMark | null
+    nextMark: HorseMemoMark | null,
+    nextNote: string,
+    rollbackNoteOnFailure: boolean
   ): Promise<void> => {
     const previousMark = manualMarkByHorseId.get(horseId) ?? null;
+    const previousDraftNote = manualNoteByHorseId.get(horseId) ?? "";
+    const previousPersistedNote = persistedNoteByHorseId.get(horseId) ?? "";
     setSaveError(null);
     setSavingHorseIds((current) => addSavingHorseId(current, horseId));
     setManualMarkByHorseId((current) => setHorseMark(current, horseId, nextMark));
+    setManualNoteByHorseId((current) => setHorseNote(current, horseId, nextNote));
 
     try {
       const response = await fetch(`/races/${encodeURIComponent(raceId)}/horse-memos`, {
@@ -59,22 +74,46 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
           accept: "application/json",
           "content-type": "application/json"
         },
-        body: JSON.stringify({ horseId, mark: nextMark })
+        body: JSON.stringify({ horseId, mark: nextMark, note: nextNote })
       });
       const payload = await readSaveHorseMemoResponse(response);
       if (!response.ok) {
-        throw new Error(payload.error ?? "印を保存できませんでした。");
+        throw new Error(payload.error ?? "メモを保存できませんでした。");
       }
 
       setManualMarkByHorseId((current) =>
         setHorseMark(current, horseId, payload.memo?.mark ?? null)
       );
+      setManualNoteByHorseId((current) => setHorseNote(current, horseId, payload.memo?.note ?? ""));
+      setPersistedNoteByHorseId((current) =>
+        setHorseNote(current, horseId, payload.memo?.note ?? "")
+      );
     } catch {
       setManualMarkByHorseId((current) => setHorseMark(current, horseId, previousMark));
-      setSaveError("印を保存できませんでした。");
+      setManualNoteByHorseId((current) =>
+        setHorseNote(
+          current,
+          horseId,
+          rollbackNoteOnFailure ? previousPersistedNote : previousDraftNote
+        )
+      );
+      setSaveError("メモを保存できませんでした。");
     } finally {
       setSavingHorseIds((current) => removeSavingHorseId(current, horseId));
     }
+  };
+  const saveHorseMemoMark = async (
+    horseId: string,
+    nextMark: HorseMemoMark | null
+  ): Promise<void> => {
+    await saveHorseMemo(horseId, nextMark, manualNoteByHorseId.get(horseId) ?? "", false);
+  };
+  const saveHorseMemoNote = async (horseId: string, nextNote: string): Promise<void> => {
+    if (nextNote === (persistedNoteByHorseId.get(horseId) ?? "")) {
+      return;
+    }
+
+    await saveHorseMemo(horseId, manualMarkByHorseId.get(horseId) ?? null, nextNote, true);
   };
 
   return (
@@ -91,18 +130,31 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
         )}
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full border-b border-app-border-soft text-left text-sm">
+        <table className="w-full min-w-[1040px] table-fixed border-b border-app-border-soft text-left text-sm">
+          <colgroup>
+            <col className="w-12" />
+            <col className="w-12" />
+            <col className="w-14" />
+            <col className="w-48" />
+            <col className="w-16" />
+            <col className="w-24" />
+            <col className="w-24" />
+            <col className="w-16" />
+            <col className="w-24" />
+            <col />
+          </colgroup>
           <thead className="bg-app-muted text-xs font-semibold text-app-subtle">
             <tr>
               <th className="w-12 px-2 py-3 text-center">印</th>
               <th className="w-12 px-2 py-3 text-center">AI</th>
               <th className="w-14 px-2 py-3 text-center">馬番</th>
-              <th className="min-w-44 px-4 py-3">馬名</th>
+              <th className="w-48 px-3 py-3">馬名</th>
               <th className="w-16 px-2 py-3">性齢</th>
               <th className="w-24 px-2 py-3">騎手</th>
               <th className="w-24 px-2 py-3">馬体重</th>
               <th className="w-16 px-2 py-3 text-center">人気</th>
               <th className="w-24 px-4 py-3 text-right">オッズ</th>
+              <th className="px-3 py-3">メモ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-app-border-soft">
@@ -113,11 +165,8 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
                     horseName={horse.name}
                     isSaving={savingHorseIds.has(horse.id)}
                     mark={manualMarkByHorseId.get(horse.id) ?? null}
-                    onChange={(nextMark) => {
-                      const pendingSave = saveHorseMemoMark(horse.id, nextMark);
-                      pendingSave.catch(() => {
-                        // 失敗時の状態復元はsaveHorseMemoMark内で行う。
-                      });
+                    onChange={async (nextMark) => {
+                      await saveHorseMemoMark(horse.id, nextMark);
                     }}
                   />
                 </td>
@@ -125,9 +174,9 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
                 <td className="px-2 py-3 text-center font-bold text-app-text">
                   {horse.horseNumberLabel}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="font-semibold text-app-text">{horse.name}</div>
-                  <div className="mt-1 text-xs text-app-subtle">{horse.trainerLabel}</div>
+                <td className="w-48 px-3 py-3">
+                  <div className="truncate font-semibold text-app-text">{horse.name}</div>
+                  <div className="mt-1 truncate text-xs text-app-subtle">{horse.trainerLabel}</div>
                 </td>
                 <td className="px-2 py-3 text-app-text">{horse.sexAgeLabel}</td>
                 <td className="max-w-24 truncate px-2 py-3 text-app-text">{horse.jockeyLabel}</td>
@@ -141,6 +190,23 @@ export const HorseList = ({ raceId, horses, prediction, horseMemos }: HorseListP
                 </td>
                 <td className="w-24 px-4 py-3 text-right font-semibold text-app-text">
                   {horse.oddsLabel}
+                </td>
+                <td className="px-3 py-3">
+                  <TextInput
+                    aria-label={`${horse.name}のメモ`}
+                    disabled={savingHorseIds.has(horse.id)}
+                    disabledCursor="wait"
+                    onBlur={async (event) => {
+                      await saveHorseMemoNote(horse.id, event.currentTarget.value);
+                    }}
+                    onChange={(event) => {
+                      const nextNote = event.currentTarget.value;
+                      setManualNoteByHorseId((current) =>
+                        setHorseNote(current, horse.id, nextNote)
+                      );
+                    }}
+                    value={manualNoteByHorseId.get(horse.id) ?? ""}
+                  />
                 </td>
               </tr>
             ))}
@@ -345,7 +411,19 @@ interface SaveHorseMemoResponse {
 
 /** 保存済みメモを馬IDから手動印へ引けるMapにする。 */
 const buildManualMarkByHorseId = (horseMemos: HorseMemo[]): Map<string, HorseMemoMark> => {
-  return new Map(horseMemos.map((memo) => [memo.horseId, memo.mark]));
+  const markByHorseId = new Map<string, HorseMemoMark>();
+  for (const memo of horseMemos) {
+    if (memo.mark !== null) {
+      markByHorseId.set(memo.horseId, memo.mark);
+    }
+  }
+
+  return markByHorseId;
+};
+
+/** 保存済みメモを馬IDからテキストメモへ引けるMapにする。 */
+const buildManualNoteByHorseId = (horseMemos: HorseMemo[]): Map<string, string> => {
+  return new Map(horseMemos.map((memo) => [memo.horseId, memo.note]));
 };
 
 /** Predictionの評価を馬IDからAI印へ引けるMapにする。 */
@@ -389,6 +467,22 @@ const setHorseMark = (
   }
 
   next.set(horseId, mark);
+  return next;
+};
+
+/** 馬IDごとのテキストメモMapを、追加・更新・削除に応じて作り直す。 */
+const setHorseNote = (
+  current: Map<string, string>,
+  horseId: string,
+  note: string
+): Map<string, string> => {
+  const next = new Map(current);
+  if (note.length === 0) {
+    next.delete(horseId);
+    return next;
+  }
+
+  next.set(horseId, note);
   return next;
 };
 

@@ -63,12 +63,12 @@ export const useReflectRaceJob = (raceId: string): UseReflectRaceJobResult => {
 
     /** リロードや画面遷移から戻った直後に、同じタブで追跡中だったジョブを復元する。 */
     const restoreJob = async (): Promise<void> => {
-      const jobId = readStoredReflectJobId(raceId);
-      if (jobId === null) {
-        return;
-      }
-
       try {
+        const jobId = readStoredReflectJobId(raceId);
+        if (jobId === null) {
+          return;
+        }
+
         const job = await fetchReflectJob(raceId, jobId);
         if (isCancelled) {
           return;
@@ -93,15 +93,9 @@ export const useReflectRaceJob = (raceId: string): UseReflectRaceJobResult => {
       }
     };
 
-    const pendingRestore = restoreJob();
-    pendingRestore.catch((error: unknown) => {
-      if (!isCancelled) {
-        clearStoredReflectJobId(raceId);
-        const message = readErrorMessage(error);
-        setClientError(message);
-        setToast({ kind: "error", message });
-      }
-    });
+    window.setTimeout(async () => {
+      await restoreJob();
+    }, 0);
 
     return () => {
       isCancelled = true;
@@ -116,6 +110,13 @@ export const useReflectRaceJob = (raceId: string): UseReflectRaceJobResult => {
     let isCancelled = false;
     let timeoutId: number | undefined;
 
+    /** 指定時間後に最新のジョブ状態を取得する。 */
+    const schedulePollJob = (delayMs: number): void => {
+      timeoutId = window.setTimeout(async () => {
+        await runPollJob();
+      }, delayMs);
+    };
+
     /** 最新のジョブ状態を取得し、まだ実行中なら次のポーリングを予約する。 */
     const pollJob = async (): Promise<void> => {
       const nextJob = await fetchReflectJob(raceId, activeJob.id);
@@ -126,14 +127,15 @@ export const useReflectRaceJob = (raceId: string): UseReflectRaceJobResult => {
       setClientError(null);
       setActiveJob(nextJob);
       if (isReflectJobActive(nextJob)) {
-        timeoutId = window.setTimeout(runPollJob, 2000);
+        schedulePollJob(2000);
       }
     };
 
     /** setTimeout から async 処理を安全に呼ぶため、エラーを画面状態へ落とし込む。 */
-    const runPollJob = (): void => {
-      const pendingPoll = pollJob();
-      pendingPoll.catch((error: unknown) => {
+    const runPollJob = async (): Promise<void> => {
+      try {
+        await pollJob();
+      } catch (error) {
         if (!isCancelled) {
           if (isReflectJobNotFoundError(error)) {
             clearStoredReflectJobId(raceId);
@@ -146,12 +148,12 @@ export const useReflectRaceJob = (raceId: string): UseReflectRaceJobResult => {
           const message = readErrorMessage(error);
           setClientError(message);
           setToast({ kind: "error", message });
-          timeoutId = window.setTimeout(runPollJob, 5000);
+          schedulePollJob(5000);
         }
-      });
+      }
     };
 
-    timeoutId = window.setTimeout(runPollJob, 1000);
+    schedulePollJob(1000);
     return () => {
       isCancelled = true;
       if (timeoutId !== undefined) {

@@ -57,7 +57,8 @@ interface MigrationRow {
 interface HorseMemoRow {
   race_id: string;
   horse_id: string;
-  mark: HorseMemoMark;
+  mark: HorseMemoMark | null;
+  note: string;
   created_at: string;
   updated_at: string;
 }
@@ -77,6 +78,41 @@ const migrations: SchemaMigration[] = [
         PRIMARY KEY (race_id, horse_id)
       );
 
+      CREATE INDEX IF NOT EXISTS horse_memos_race_id_idx ON horse_memos (race_id);
+    `
+  },
+  {
+    version: 2,
+    sql: `
+      CREATE TABLE horse_memos_next (
+        race_id TEXT NOT NULL,
+        horse_id TEXT NOT NULL,
+        mark TEXT CHECK (mark IS NULL OR mark IN ('◎', '◯', '▲', '△', '☆', '✓', '✗')),
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (race_id, horse_id)
+      );
+
+      INSERT INTO horse_memos_next (
+        race_id,
+        horse_id,
+        mark,
+        note,
+        created_at,
+        updated_at
+      )
+      SELECT
+        race_id,
+        horse_id,
+        mark,
+        '',
+        created_at,
+        updated_at
+      FROM horse_memos;
+
+      DROP TABLE horse_memos;
+      ALTER TABLE horse_memos_next RENAME TO horse_memos;
       CREATE INDEX IF NOT EXISTS horse_memos_race_id_idx ON horse_memos (race_id);
     `
   }
@@ -139,15 +175,24 @@ export const writeHorseMemo = async (
             race_id,
             horse_id,
             mark,
+            note,
             created_at,
             updated_at
-          ) VALUES (?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(race_id, horse_id) DO UPDATE SET
             mark = excluded.mark,
+            note = excluded.note,
             updated_at = excluded.updated_at
         `
       )
-      .run(parsedMemo.raceId, parsedMemo.horseId, parsedMemo.mark, createdAt, parsedMemo.updatedAt);
+      .run(
+        parsedMemo.raceId,
+        parsedMemo.horseId,
+        parsedMemo.mark,
+        parsedMemo.note,
+        createdAt,
+        parsedMemo.updatedAt
+      );
 
     const stored = database
       .prepare<HorseMemoRow>(
@@ -232,6 +277,7 @@ const rowToHorseMemo = (row: HorseMemoRow): HorseMemo => {
     raceId: row.race_id,
     horseId: row.horse_id,
     mark: row.mark,
+    note: row.note,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   });

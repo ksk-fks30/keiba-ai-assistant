@@ -30,7 +30,8 @@ describe("createSaveHorseMemoUseCase", () => {
     const actual = await saveHorseMemoUseCase({
       raceId: race.id,
       horseId: "fixture-horse-001",
-      mark: "◎"
+      mark: "◎",
+      note: "返し馬を確認する"
     });
 
     // Assert
@@ -38,13 +39,14 @@ describe("createSaveHorseMemoUseCase", () => {
       raceId: race.id,
       horseId: "fixture-horse-001",
       mark: "◎",
+      note: "返し馬を確認する",
       createdAt: "2026-06-07T12:00:00.000Z",
       updatedAt: "2026-06-07T12:00:00.000Z"
     });
     expect(savedMemo).toEqual(actual);
   });
 
-  test("markがnullの場合は対象出走馬のメモを削除する", async () => {
+  test("markがnullかつnoteが空の場合は対象出走馬のメモを削除する", async () => {
     // Arrange
     const race = parseRace(sampleRace);
     let deletedKey: { raceId: string; horseId: string } | null = null;
@@ -65,7 +67,8 @@ describe("createSaveHorseMemoUseCase", () => {
     const actual = await saveHorseMemoUseCase({
       raceId: race.id,
       horseId: "fixture-horse-001",
-      mark: null
+      mark: null,
+      note: ""
     });
 
     // Assert
@@ -74,6 +77,45 @@ describe("createSaveHorseMemoUseCase", () => {
       raceId: race.id,
       horseId: "fixture-horse-001"
     });
+  });
+
+  test("markがnullでもnoteがある場合はテキストメモとして保存できる", async () => {
+    // Arrange
+    const race = parseRace(sampleRace);
+    let savedMemo: HorseMemo | null = null;
+    const saveHorseMemoUseCase = createSaveHorseMemoUseCase({
+      runRepository: {
+        ...createUnusedRunRepositoryMethods(),
+        findRaceById: async () => race
+      },
+      horseMemoRepository: {
+        ...createUnusedHorseMemoRepositoryMethods(),
+        saveHorseMemo: async (memo) => {
+          savedMemo = memo;
+          return memo;
+        }
+      },
+      now: () => new Date("2026-06-07T12:00:00.000Z")
+    });
+
+    // Act
+    const actual = await saveHorseMemoUseCase({
+      raceId: race.id,
+      horseId: "fixture-horse-001",
+      mark: null,
+      note: "馬場が渋れば相手候補"
+    });
+
+    // Assert
+    expect(actual).toEqual({
+      raceId: race.id,
+      horseId: "fixture-horse-001",
+      mark: null,
+      note: "馬場が渋れば相手候補",
+      createdAt: "2026-06-07T12:00:00.000Z",
+      updatedAt: "2026-06-07T12:00:00.000Z"
+    });
+    expect(savedMemo).toEqual(actual);
   });
 
   test("race.jsonが存在しない場合は保存しない", async () => {
@@ -90,7 +132,8 @@ describe("createSaveHorseMemoUseCase", () => {
     const actual = saveHorseMemoUseCase({
       raceId: "missing-race",
       horseId: "fixture-horse-001",
-      mark: "◯"
+      mark: "◯",
+      note: ""
     });
 
     // Assert
@@ -112,7 +155,8 @@ describe("createSaveHorseMemoUseCase", () => {
     const actual = saveHorseMemoUseCase({
       raceId: race.id,
       horseId: "missing-horse",
-      mark: "△"
+      mark: "△",
+      note: ""
     });
 
     // Assert
