@@ -9,6 +9,13 @@ export {
   readPredictionPolicy
 } from "@keiba-ai-assistant/storage/policy-store";
 export {
+  deleteHorseMemo,
+  getDefaultHorseMemoDatabasePath,
+  initializeHorseMemoDatabase,
+  listHorseMemos,
+  writeHorseMemo
+} from "@keiba-ai-assistant/storage/horse-memo-store";
+export {
   getDefaultLessonDatabasePath,
   initializeLessonDatabase,
   findLessonEntriesByIds,
@@ -37,6 +44,7 @@ export {
   writeRaceResult
 } from "@keiba-ai-assistant/storage/run-store";
 export type { CacheStoreOptions } from "@keiba-ai-assistant/storage/cache-store";
+export type { HorseMemoStoreOptions } from "@keiba-ai-assistant/storage/horse-memo-store";
 export type {
   LessonSearchInput,
   LessonSearchResult,

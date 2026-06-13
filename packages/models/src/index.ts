@@ -1,6 +1,7 @@
 export * from "@keiba-ai-assistant/models/bet-candidate";
 export * from "@keiba-ai-assistant/models/horse";
 export * from "@keiba-ai-assistant/models/horse-evaluation";
+export * from "@keiba-ai-assistant/models/horse-memo";
 export * from "@keiba-ai-assistant/models/lesson-entry";
 export * from "@keiba-ai-assistant/models/lesson-entry-draft";
 export * from "@keiba-ai-assistant/models/past-performance";

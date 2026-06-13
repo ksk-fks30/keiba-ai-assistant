@@ -1,4 +1,5 @@
 import type {
+  HorseMemo,
   LessonEntry,
   Prediction,
   QaEntry,
@@ -6,6 +7,7 @@ import type {
   RaceReflection,
   RaceResult
 } from "@keiba-ai-assistant/models";
+import type { HorseMemoRepository } from "@keiba-ai-assistant/web/server/repositories/horse-memo-repository";
 import type { LessonRepository } from "@keiba-ai-assistant/web/server/repositories/lesson-repository";
 import type { RunRepository } from "@keiba-ai-assistant/web/server/repositories/run-repository";
 
@@ -23,6 +25,8 @@ export interface ShowRaceDependencies {
   runRepository: RunRepository;
   /** 振り返りから生成したLessonを取得するrepository。 */
   lessonRepository: LessonRepository;
+  /** Web限定の出走馬メモを取得するrepository。 */
+  horseMemoRepository: HorseMemoRepository;
   /** 現在日時を返す関数。テストで固定する。 */
   now?: (() => Date) | undefined;
 }
@@ -40,6 +44,8 @@ export interface RaceShowPageProps {
   prediction: Prediction | null;
   /** 保存済みqa.jsonlを検証したdomain model配列。見つからない場合は空配列。 */
   qaEntries: QaEntry[];
+  /** Web限定で保存した出走馬メモ。見つからない場合は空配列。 */
+  horseMemos: HorseMemo[];
   /** 保存済みresult.jsonを検証したdomain model。見つからない場合はnull。 */
   raceResult: RaceResult | null;
   /** 保存済みreflection.jsonを検証したdomain model。見つからない場合はnull。 */
@@ -64,6 +70,7 @@ export const createShowRaceUseCase = (dependencies: ShowRaceDependencies): ShowR
         race: null,
         prediction: null,
         qaEntries: [],
+        horseMemos: [],
         raceResult: null,
         raceReflection: null,
         reflectionLessons: [],
@@ -71,9 +78,10 @@ export const createShowRaceUseCase = (dependencies: ShowRaceDependencies): ShowR
         askError: input.askError ?? null
       };
     }
-    const [prediction, qaEntries, raceResult, raceReflection] = await Promise.all([
+    const [prediction, qaEntries, horseMemos, raceResult, raceReflection] = await Promise.all([
       dependencies.runRepository.findPredictionByRaceId(input.raceId),
       dependencies.runRepository.findQaEntriesByRaceId(input.raceId),
+      dependencies.horseMemoRepository.findHorseMemosByRaceId(input.raceId),
       dependencies.runRepository.findRaceResultByRaceId(input.raceId),
       dependencies.runRepository.findRaceReflectionByRaceId(input.raceId)
     ]);
@@ -87,6 +95,7 @@ export const createShowRaceUseCase = (dependencies: ShowRaceDependencies): ShowR
       race,
       prediction,
       qaEntries,
+      horseMemos,
       raceResult,
       raceReflection,
       reflectionLessons,

@@ -19,6 +19,7 @@ const RaceShow = ({
   race,
   prediction,
   qaEntries,
+  horseMemos,
   raceResult,
   raceReflection,
   reflectionLessons,
@@ -77,7 +78,12 @@ const RaceShow = ({
                 lessons={reflectionLessons}
               />
             ) : null}
-            <HorseList horses={raceView.horses} />
+            <HorseList
+              raceId={raceId}
+              horses={raceView.horses}
+              prediction={prediction}
+              horseMemos={horseMemos}
+            />
           </div>
         </div>
         <RaceAiPanel
