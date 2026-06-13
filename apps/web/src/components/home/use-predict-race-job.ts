@@ -102,12 +102,12 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
 
     /** リロードや画面遷移から戻った直後に、同じタブで追跡中だったジョブを復元する。 */
     const restoreJob = async (): Promise<void> => {
-      const jobId = readStoredPredictJobId();
-      if (jobId === null) {
-        return;
-      }
-
       try {
+        const jobId = readStoredPredictJobId();
+        if (jobId === null) {
+          return;
+        }
+
         const job = await fetchPredictJob(jobId);
         if (isCancelled) {
           return;
@@ -130,13 +130,9 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
       }
     };
 
-    const pendingRestore = restoreJob();
-    pendingRestore.catch((error: unknown) => {
-      if (!isCancelled) {
-        clearStoredPredictJobId();
-        setClientError(readErrorMessage(error));
-      }
-    });
+    window.setTimeout(async () => {
+      await restoreJob();
+    }, 0);
 
     return () => {
       isCancelled = true;
@@ -166,6 +162,13 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
     let isCancelled = false;
     let timeoutId: number | undefined;
 
+    /** 指定時間後に最新のジョブ状態を取得する。 */
+    const schedulePollJob = (delayMs: number): void => {
+      timeoutId = window.setTimeout(async () => {
+        await runPollJob();
+      }, delayMs);
+    };
+
     /** 最新のジョブ状態を取得し、まだ実行中なら次のポーリングを予約する。 */
     const pollJob = async (): Promise<void> => {
       const nextJob = await fetchPredictJob(activeJob.id);
@@ -176,14 +179,15 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
       setClientError(null);
       setActiveJob(nextJob);
       if (isPredictJobActive(nextJob)) {
-        timeoutId = window.setTimeout(runPollJob, 2000);
+        schedulePollJob(2000);
       }
     };
 
     /** setTimeout から async 処理を安全に呼ぶため、エラーを画面状態へ落とし込む。 */
-    const runPollJob = (): void => {
-      const pendingPoll = pollJob();
-      pendingPoll.catch((error: unknown) => {
+    const runPollJob = async (): Promise<void> => {
+      try {
+        await pollJob();
+      } catch (error) {
         if (!isCancelled) {
           if (isPredictJobNotFoundError(error)) {
             clearStoredPredictJobId();
@@ -192,12 +196,12 @@ export const usePredictRaceJob = (): UsePredictRaceJobResult => {
             return;
           }
           setClientError(readErrorMessage(error));
-          timeoutId = window.setTimeout(runPollJob, 5000);
+          schedulePollJob(5000);
         }
-      });
+      }
     };
 
-    timeoutId = window.setTimeout(runPollJob, 1000);
+    schedulePollJob(1000);
     return () => {
       isCancelled = true;
       if (timeoutId !== undefined) {

@@ -211,11 +211,8 @@ const LessonRow = ({
   isApproving: boolean;
   onApprove: (lessonId: string) => Promise<void>;
 }) => {
-  const handleApprove = (): void => {
-    const pendingApprove = onApprove(lesson.id);
-    pendingApprove.catch(() => {
-      // エラーは親コンポーネントの状態へ反映する。
-    });
+  const handleApprove = async (): Promise<void> => {
+    await onApprove(lesson.id);
   };
 
   return (

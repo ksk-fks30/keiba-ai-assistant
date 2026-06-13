@@ -89,6 +89,8 @@ DB は使わない。Repository は `runs/` 配下の JSON や `packages/storage
 - Repository は `packages/storage` と `packages/models` に依存してよい。
 - Page props は明示的に型定義する。
 - server側のRoute / UseCase / Repositoryは表示用ラベルやCSS都合のview modelを作らない。
+- Promiseを返す処理は、Reactのイベントハンドラでも原則 `async` / `await` で扱う。`pending.catch(() => {})` やコメントだけの `catch` で握りつぶさない。
+- `useEffect`、timer、abort handlerなど呼び出し元がPromiseを待たない場所では、呼び出すasync関数の内部で `try` / `catch` し、エラーを画面状態、ログ、進捗表示などに必ず反映する。
 - コメントは日本語で、処理順、設計意図、副作用、外部I/O、保存済みファイルの扱いが誤解されやすい箇所に置く。
 
 ## テスト方針

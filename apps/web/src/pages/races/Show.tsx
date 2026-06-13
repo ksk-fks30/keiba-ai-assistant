@@ -19,6 +19,7 @@ const RaceShow = ({
   race,
   prediction,
   qaEntries,
+  horseMemos,
   raceResult,
   raceReflection,
   reflectionLessons,
@@ -49,12 +50,9 @@ const RaceShow = ({
 
   const isReflectionActionLoading = reflectionJob.isStartingJob || reflectionJob.isJobActive;
   const showReflectionAction = canStartReflection || isReflectionActionLoading;
-  const handleConfirmReflection = (): void => {
+  const handleConfirmReflection = async (): Promise<void> => {
     setIsConfirmModalOpen(false);
-    const pendingStart = reflectionJob.start();
-    pendingStart.catch(() => {
-      // エラーはhook側のtoastへ反映する。
-    });
+    await reflectionJob.start();
   };
 
   return (
@@ -77,7 +75,12 @@ const RaceShow = ({
                 lessons={reflectionLessons}
               />
             ) : null}
-            <HorseList horses={raceView.horses} />
+            <HorseList
+              raceId={raceId}
+              horses={raceView.horses}
+              prediction={prediction}
+              horseMemos={horseMemos}
+            />
           </div>
         </div>
         <RaceAiPanel
@@ -108,7 +111,7 @@ const ReflectionConfirmModal = ({
 }: {
   isOpen: boolean;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
 }) => {
   if (!isOpen) {
     return null;
@@ -121,7 +124,13 @@ const ReflectionConfirmModal = ({
           <Button onClick={onCancel} type="button" variant="neutral">
             キャンセル
           </Button>
-          <Button onClick={onConfirm} type="button" variant="primary">
+          <Button
+            onClick={async () => {
+              await onConfirm();
+            }}
+            type="button"
+            variant="primary"
+          >
             振り返る
           </Button>
         </>

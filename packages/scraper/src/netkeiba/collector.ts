@@ -56,11 +56,12 @@ export const collectRaceSnapshotFromNetkeiba = async (
     isSessionClosed = true;
     await session.close();
   };
-  const closeSessionOnAbort = (): void => {
-    const pendingClose = closeSession();
-    pendingClose.catch(() => {
-      // 中止要求後は元の中止エラーを優先するため、終了処理の失敗は握りつぶす。
-    });
+  const closeSessionOnAbort = async (): Promise<void> => {
+    try {
+      await closeSession();
+    } catch (error) {
+      reportProgress(input, `中止時のChromium終了に失敗しました: ${readErrorMessage(error)}`);
+    }
   };
   input.signal?.addEventListener("abort", closeSessionOnAbort, { once: true });
 
@@ -285,6 +286,11 @@ const throwIfAborted = (signal: AbortSignal | undefined): void => {
 /** 呼び出し元が進捗表示を要求している場合だけメッセージを渡す。 */
 const reportProgress = (input: CollectRaceSnapshotInput, message: string): void => {
   input.onProgress?.(message);
+};
+
+/** unknown errorから進捗表示用のメッセージを取り出す。 */
+const readErrorMessage = (error: unknown): string => {
+  return error instanceof Error ? error.message : String(error);
 };
 
 /** collect 入力から馬詳細ページの snapshot 作成設定だけを作る。 */

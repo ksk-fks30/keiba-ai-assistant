@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import sampleRace from "@fixtures/races/sample-race.json";
 import {
   parseRace,
+  type HorseMemo,
   type LessonEntry,
   type Prediction,
   type QaEntry,
@@ -44,6 +45,13 @@ describe("createShowRaceUseCase", () => {
         }
       },
       lessonRepository: createUnusedLessonRepositoryMethods(),
+      horseMemoRepository: {
+        ...createUnusedHorseMemoRepositoryMethods(),
+        findHorseMemosByRaceId: async (raceId) => {
+          expect(raceId).toBe(race.id);
+          return [createHorseMemo(race.id, "fixture-horse-001")];
+        }
+      },
       now: createBeforeRaceNow()
     });
 
@@ -56,6 +64,7 @@ describe("createShowRaceUseCase", () => {
       race,
       prediction,
       qaEntries,
+      horseMemos: [createHorseMemo(race.id, "fixture-horse-001")],
       raceResult: null,
       raceReflection: null,
       reflectionLessons: [],
@@ -81,6 +90,10 @@ describe("createShowRaceUseCase", () => {
         }
       },
       lessonRepository: createUnusedLessonRepositoryMethods(),
+      horseMemoRepository: {
+        ...createUnusedHorseMemoRepositoryMethods(),
+        findHorseMemosByRaceId: async () => []
+      },
       now: createBeforeRaceNow()
     });
 
@@ -93,6 +106,7 @@ describe("createShowRaceUseCase", () => {
       race,
       prediction: null,
       qaEntries: [],
+      horseMemos: [],
       raceResult: null,
       raceReflection: null,
       reflectionLessons: [],
@@ -125,6 +139,12 @@ describe("createShowRaceUseCase", () => {
         }
       },
       lessonRepository: createUnusedLessonRepositoryMethods(),
+      horseMemoRepository: {
+        ...createUnusedHorseMemoRepositoryMethods(),
+        findHorseMemosByRaceId: async () => {
+          throw new Error("Raceがない場合は出走馬メモを読まない");
+        }
+      },
       now: createBeforeRaceNow()
     });
 
@@ -137,6 +157,7 @@ describe("createShowRaceUseCase", () => {
       race: null,
       prediction: null,
       qaEntries: [],
+      horseMemos: [],
       raceResult: null,
       raceReflection: null,
       reflectionLessons: [],
@@ -161,6 +182,10 @@ describe("createShowRaceUseCase", () => {
         }
       },
       lessonRepository: createUnusedLessonRepositoryMethods(),
+      horseMemoRepository: {
+        ...createUnusedHorseMemoRepositoryMethods(),
+        findHorseMemosByRaceId: async () => []
+      },
       now: createBeforeRaceNow()
     });
 
@@ -173,6 +198,7 @@ describe("createShowRaceUseCase", () => {
       race,
       prediction: null,
       qaEntries: [],
+      horseMemos: [],
       raceResult: null,
       raceReflection: null,
       reflectionLessons: [],
@@ -195,6 +221,10 @@ describe("createShowRaceUseCase", () => {
         findRaceReflectionByRaceId: async () => null
       },
       lessonRepository: createUnusedLessonRepositoryMethods(),
+      horseMemoRepository: {
+        ...createUnusedHorseMemoRepositoryMethods(),
+        findHorseMemosByRaceId: async () => []
+      },
       now: () => new Date("2026-06-07T16:00:00+09:00")
     });
 
@@ -227,6 +257,10 @@ describe("createShowRaceUseCase", () => {
           expect(lessonIds).toEqual(raceReflection.lessonIds);
           return lessons;
         }
+      },
+      horseMemoRepository: {
+        ...createUnusedHorseMemoRepositoryMethods(),
+        findHorseMemosByRaceId: async () => []
       },
       now: () => new Date("2026-06-07T16:00:00+09:00")
     });
@@ -271,6 +305,18 @@ const createPrediction = (raceId: string): Prediction => {
   };
 };
 
+/** usecase テスト用の最小限の HorseMemo fixture を作る。 */
+const createHorseMemo = (raceId: string, horseId: string): HorseMemo => {
+  return {
+    raceId,
+    horseId,
+    mark: "◎",
+    note: "",
+    createdAt: "2026-06-07T12:00:00.000Z",
+    updatedAt: "2026-06-07T12:00:00.000Z"
+  };
+};
+
 /** usecase テスト用の最小限の QaEntry fixture を作る。 */
 const createQaEntry = (raceId: string, id: string, question: string): QaEntry => {
   return {
@@ -279,6 +325,27 @@ const createQaEntry = (raceId: string, id: string, question: string): QaEntry =>
     question,
     answer: `${question}への回答です。`,
     createdAt: "2026-05-31T06:10:00.000Z"
+  };
+};
+
+/** 詳細表示usecaseで使わないHorseMemoRepositoryメソッドを失敗スタブとして作る。 */
+const createUnusedHorseMemoRepositoryMethods = () => {
+  return {
+    findHorseMemosByRaceId: async () => {
+      throw new Error("詳細表示ではテストで差し替えていない出走馬メモ読込を呼ばない");
+    },
+    saveHorseMemo: async () => {
+      throw new Error("詳細表示では出走馬メモを保存しない");
+    },
+    saveHorseMemoMark: async () => {
+      throw new Error("詳細表示では出走馬メモの手動印を保存しない");
+    },
+    saveHorseMemoNote: async () => {
+      throw new Error("詳細表示では出走馬メモの本文を保存しない");
+    },
+    deleteHorseMemo: async () => {
+      throw new Error("詳細表示では出走馬メモを削除しない");
+    }
   };
 };
 
