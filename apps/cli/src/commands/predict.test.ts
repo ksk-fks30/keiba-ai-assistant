@@ -100,7 +100,22 @@ describe("registerPredictCommand", () => {
         expect(input.policy.content).toBe("芝マイルでは持続力を重視する。");
         expect(input.model).toBe("fixture-codex-model");
         expect(input.lessonCandidates).toEqual([lesson]);
+        expect(input.jockeyLeadingReference).toBe("騎手リーディング抜粋");
         return prediction;
+      },
+      readJockeyLeadingReferenceForRace: async (input) => {
+        expect(input).toEqual({
+          ...race,
+          weather: {
+            condition: "晴れ",
+            precipitationProbability: 20,
+            temperatureCelsius: 24.8,
+            wind: "南西 12km/h",
+            source: "https://api.open-meteo.com/v1/forecast",
+            observedAt: "2026-05-31T16:00:00+09:00"
+          }
+        });
+        return "騎手リーディング抜粋";
       },
       recordPredictionLessonReferences: async (references, options) => {
         expect(options).toEqual({ dbPath: lessonDbPath });
@@ -204,6 +219,7 @@ describe("registerPredictCommand", () => {
       analyzeRace: async () => {
         throw new Error("analysis failed");
       },
+      readJockeyLeadingReferenceForRace: async () => undefined,
       log: () => {}
     });
 

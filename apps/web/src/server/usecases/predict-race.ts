@@ -19,7 +19,8 @@ import {
 } from "@keiba-ai-assistant/scraper";
 import {
   buildLessonSearchInputFromRace,
-  buildPredictionLessonReferences
+  buildPredictionLessonReferences,
+  readJockeyLeadingReferenceForRace
 } from "@keiba-ai-assistant/storage";
 import type { LessonRepository } from "@keiba-ai-assistant/web/server/repositories/lesson-repository";
 import type { PolicyRepository } from "@keiba-ai-assistant/web/server/repositories/policy-repository";
@@ -59,6 +60,8 @@ export interface PredictRaceUseCaseDependencies {
   lessonRepository: LessonRepository;
   /** 予想方針を取得するrepository。 */
   policyRepository: PolicyRepository;
+  /** 今回出走する騎手だけに絞ったJRA騎手リーディング参照文を読み込む関数。 */
+  readJockeyLeadingReferenceForRace?: typeof readJockeyLeadingReferenceForRace | undefined;
   /** netKeiba レースページからsnapshotを取得する関数。 */
   collectRaceSnapshot?:
     | ((input: CollectRaceSnapshotInput) => Promise<RaceSourceSnapshot>)
@@ -87,6 +90,8 @@ export const createPredictRaceUseCase = (
   const extractRaceFromSnapshot = dependencies.extractRaceFromSnapshot ?? extractRace;
   const weatherProvider = dependencies.weatherProvider ?? createOpenMeteoWeatherProvider();
   const analyzeRace = dependencies.analyzeRace ?? generatePrediction;
+  const readJockeyLeadingReference =
+    dependencies.readJockeyLeadingReferenceForRace ?? readJockeyLeadingReferenceForRace;
 
   return async (input) => {
     const raceUrl = normalizeNetkeibaRaceUrl(input.raceUrl);
@@ -116,9 +121,16 @@ export const createPredictRaceUseCase = (
     reportProgress(input, `Lesson候補を ${lessonCandidates.length} 件見つけました。`);
     reportProgress(input, "予想方針を読み込んでいます。");
     const policy = await dependencies.policyRepository.readPredictionPolicy();
+    const jockeyLeadingReference = await readJockeyLeadingReference(raceWithWeather);
     reportProgress(input, "Codexで予想分析を実行しています。");
     const prediction = await analyzeRace(
-      buildAnalyzeRaceInput(input, raceWithWeather, policy, lessonCandidates)
+      buildAnalyzeRaceInput(
+        input,
+        raceWithWeather,
+        policy,
+        lessonCandidates,
+        jockeyLeadingReference
+      )
     );
     reportProgress(input, "prediction.json を保存しています。");
     await dependencies.runRepository.savePrediction(prediction);
@@ -236,7 +248,8 @@ const buildAnalyzeRaceInput = (
   input: PredictRaceUseCaseInput,
   race: Race,
   policy: AnalyzeRaceInput["policy"],
-  lessonCandidates: LessonEntry[]
+  lessonCandidates: LessonEntry[],
+  jockeyLeadingReference: string | undefined
 ): AnalyzeRaceInput => {
   const analyzeInput: AnalyzeRaceInput = {
     race,
@@ -249,6 +262,9 @@ const buildAnalyzeRaceInput = (
   }
   if (input.signal !== undefined) {
     analyzeInput.signal = input.signal;
+  }
+  if (jockeyLeadingReference !== undefined) {
+    analyzeInput.jockeyLeadingReference = jockeyLeadingReference;
   }
 
   return analyzeInput;

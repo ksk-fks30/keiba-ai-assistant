@@ -71,6 +71,11 @@ describe("createPredictRaceUseCase", () => {
           return policy;
         }
       },
+      readJockeyLeadingReferenceForRace: async (input) => {
+        events.push("jockeyLeading");
+        expect(input).toEqual(raceWithWeather);
+        return "騎手リーディング抜粋";
+      },
       collectRaceSnapshot: async (input) => {
         events.push("collect");
         actualCollectInput = input;
@@ -118,6 +123,7 @@ describe("createPredictRaceUseCase", () => {
       race: raceWithWeather,
       policy,
       lessonCandidates: [lesson],
+      jockeyLeadingReference: "騎手リーディング抜粋",
       timeoutMs: 2_000,
       signal: abortController.signal
     });
@@ -140,6 +146,7 @@ describe("createPredictRaceUseCase", () => {
       "saveRace",
       "searchLessons",
       "policy",
+      "jockeyLeading",
       "analyze",
       "savePrediction",
       "recordLessons"
@@ -162,6 +169,7 @@ describe("createPredictRaceUseCase", () => {
       policyRepository: {
         readPredictionPolicy: async () => createPredictionPolicy()
       },
+      readJockeyLeadingReferenceForRace: async () => undefined,
       collectRaceSnapshot: async () => createRaceSourceSnapshot(),
       extractRaceFromSnapshot: async (input) => {
         actualExtractInput = input;
@@ -201,6 +209,7 @@ describe("createPredictRaceUseCase", () => {
       policyRepository: {
         readPredictionPolicy: async () => createPredictionPolicy()
       },
+      readJockeyLeadingReferenceForRace: async () => undefined,
       collectRaceSnapshot: async () => createRaceSourceSnapshot(),
       extractRaceFromSnapshot: async () => race,
       weatherProvider: {

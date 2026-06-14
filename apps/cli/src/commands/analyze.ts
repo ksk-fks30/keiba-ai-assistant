@@ -5,6 +5,7 @@ import {
   buildLessonSearchInputFromRace,
   buildPredictionLessonReferences,
   recordPredictionLessonReferences,
+  readJockeyLeadingReferenceForRace,
   readPredictionPolicy,
   readRace,
   searchLessonEntries,
@@ -36,6 +37,8 @@ export interface AnalyzeCommandDependencies {
   analyzeRace?: ((input: AnalyzeRaceInput) => Promise<Prediction>) | undefined;
   /** 予想方針を読み込む関数。 */
   readPredictionPolicy?: typeof readPredictionPolicy | undefined;
+  /** 今回出走する騎手だけに絞ったJRA騎手リーディング参照文を読み込む関数。 */
+  readJockeyLeadingReferenceForRace?: typeof readJockeyLeadingReferenceForRace | undefined;
   /** 保存済みレース情報を読み込む関数。 */
   readRace?: typeof readRace | undefined;
   /** 予想時に参照するLesson候補を検索する関数。 */
@@ -57,6 +60,8 @@ export const registerAnalyzeCommand = (
   const deps = {
     analyzeRace: dependencies.analyzeRace ?? analyzeRace,
     readPredictionPolicy: dependencies.readPredictionPolicy ?? readPredictionPolicy,
+    readJockeyLeadingReferenceForRace:
+      dependencies.readJockeyLeadingReferenceForRace ?? readJockeyLeadingReferenceForRace,
     readRace: dependencies.readRace ?? readRace,
     searchLessonEntries: dependencies.searchLessonEntries ?? searchLessonEntries,
     writePrediction: dependencies.writePrediction ?? writePrediction,
@@ -91,9 +96,10 @@ export const registerAnalyzeCommand = (
       deps.log(`Lesson候補を ${lessonCandidates.length} 件見つけました。`);
       deps.log("予想方針を読み込んでいます。");
       const policy = await deps.readPredictionPolicy(buildPolicyStoreOptions(options));
+      const jockeyLeadingReference = await deps.readJockeyLeadingReferenceForRace(race);
       deps.log("Codexで予想分析を実行しています。");
       const prediction = await deps.analyzeRace(
-        buildAnalyzeRaceInput(race, policy, options, lessonCandidates)
+        buildAnalyzeRaceInput(race, policy, options, lessonCandidates, jockeyLeadingReference)
       );
       deps.log("prediction.json を保存しています。");
       await deps.writePrediction(prediction, runStoreOptions);
@@ -161,11 +167,16 @@ const buildAnalyzeRaceInput = (
   race: Awaited<ReturnType<typeof readRace>>,
   policy: Awaited<ReturnType<typeof readPredictionPolicy>>,
   options: AnalyzeCommandOptions,
-  lessonCandidates: LessonEntry[]
-) => {
-  if (options.model === undefined) {
-    return { race, policy, lessonCandidates };
+  lessonCandidates: LessonEntry[],
+  jockeyLeadingReference: string | undefined
+): AnalyzeRaceInput => {
+  const input: AnalyzeRaceInput = { race, policy, lessonCandidates };
+  if (options.model !== undefined) {
+    input.model = options.model;
+  }
+  if (jockeyLeadingReference !== undefined) {
+    input.jockeyLeadingReference = jockeyLeadingReference;
   }
 
-  return { race, policy, lessonCandidates, model: options.model };
+  return input;
 };

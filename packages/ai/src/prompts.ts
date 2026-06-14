@@ -34,6 +34,8 @@ export interface RaceAnalysisPromptInput {
   policy: PredictionPolicy;
   /** 予想時に参照候補として渡す承認済みLesson。 */
   lessonCandidates?: LessonEntry[] | undefined;
+  /** 今回出走する騎手だけに絞ったJRA騎手リーディング参照文。 */
+  jockeyLeadingReference?: string | undefined;
 }
 
 /** レース振り返りプロンプトの組み立てに必要な入力。 */
@@ -231,16 +233,30 @@ export const buildRaceAnalysisPrompt = (input: RaceAnalysisPromptInput): string 
     "referencedLessons には、過去の反省Lesson候補から今回の予想に採用したものだけを最大5件入れてください。",
     "採用するLessonがない場合、referencedLessons は空配列にしてください。",
     "過去の反省Lessonは絶対ルールではなく判断補助です。現在の条件に合わないLessonは採用しないでください。",
+    "今回出走騎手のJRAリーディング抜粋がある場合は、騎手評価の補助材料として使ってください。",
+    "複勝率は3着以内に入る信頼度の補助指標として扱ってください。",
+    "ただし、騎手成績だけで買い目を決めず、馬の能力、条件適性、展開、人気、オッズと合わせて判断してください。",
+    "抜粋にない騎手の具体的なリーディング数値は推測しないでください。",
     "",
     "予想方針:",
     input.policy.content,
     "",
     "過去の反省Lesson候補:",
     JSON.stringify(input.lessonCandidates ?? [], null, 2),
+    ...buildJockeyLeadingReferencePromptLines(input.jockeyLeadingReference),
     "",
     "レースデータ:",
     JSON.stringify(input.race, null, 2)
   ].join("\n");
+};
+
+/** 騎手リーディング抜粋がある場合だけプロンプト本文へ追加する。 */
+const buildJockeyLeadingReferencePromptLines = (reference: string | undefined): string[] => {
+  if (reference === undefined || reference.trim().length === 0) {
+    return [];
+  }
+
+  return ["", "今回出走騎手のJRAリーディング抜粋:", reference];
 };
 
 /** 保存済み予想と確定結果を、Codex が振り返り下書きJSONを返すためのプロンプトへ変換する。 */

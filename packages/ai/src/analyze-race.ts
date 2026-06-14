@@ -29,6 +29,8 @@ export interface AnalyzeRaceInput {
   policy: PredictionPolicy;
   /** 予想時に参照候補として渡す承認済みLesson。 */
   lessonCandidates?: LessonEntry[] | undefined;
+  /** 今回出走する騎手だけに絞ったJRA騎手リーディング参照文。 */
+  jockeyLeadingReference?: string | undefined;
   /** この分析で利用する Codex モデル名。 */
   model?: string;
   /** Codex SDK 実行を待つ最大時間。未指定の場合はタイムアウトしない。 */
@@ -46,7 +48,8 @@ export const analyzeRace = async (input: AnalyzeRaceInput): Promise<Prediction> 
   const prompt = buildRaceAnalysisPrompt({
     race: input.race,
     policy: input.policy,
-    lessonCandidates: input.lessonCandidates ?? []
+    lessonCandidates: input.lessonCandidates ?? [],
+    jockeyLeadingReference: input.jockeyLeadingReference
   });
   const runtime = input.runtime ?? createCodexSdkRuntime(buildCodexSdkRuntimeOptions(input));
   const executionControl = createCodexExecutionControl({
