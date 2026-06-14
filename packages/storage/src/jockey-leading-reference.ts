@@ -5,7 +5,7 @@ import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
 
 /** 騎手リーディング参照データを読み込む設定。 */
 export interface JockeyLeadingReferenceOptions {
-  /** 参照するJSONファイルのパス。未指定時は `data/reference/` の2026年JRA騎手データを使う。 */
+  /** 参照するJSONファイルのパス。未指定時は環境変数か `data/reference/` の2026年JRA騎手データを使う。 */
   filePath?: string | undefined;
 }
 
@@ -43,6 +43,9 @@ const defaultJockeyLeadingFilePath = fileURLToPath(
   new URL("../../../data/reference/jockey-leading-jra-2026-06-14.json", import.meta.url)
 );
 
+/** 騎手リーディング参照JSONのパスを上書きする環境変数名。 */
+const jockeyLeadingReferencePathEnvName = "KEIBA_JOCKEY_LEADING_REFERENCE_PATH";
+
 /**
  * レースに出走する騎手だけをJRA騎手リーディングJSONから抽出し、AIプロンプト用の短い参照文を返す。
  */
@@ -55,7 +58,7 @@ export const readJockeyLeadingReferenceForRace = async (
     return undefined;
   }
 
-  const filePath = options.filePath ?? defaultJockeyLeadingFilePath;
+  const filePath = resolveJockeyLeadingFilePath(options);
   let content: string;
   try {
     content = await readFile(filePath, "utf8");
@@ -83,6 +86,21 @@ export const readJockeyLeadingReferenceForRace = async (
   }
 
   return buildPromptReference(data, matches, missingJockeyNames);
+};
+
+/** オプション、環境変数、既定値の順で参照JSONのパスを決める。 */
+const resolveJockeyLeadingFilePath = (options: JockeyLeadingReferenceOptions): string => {
+  return options.filePath ?? readJockeyLeadingFilePathFromEnv() ?? defaultJockeyLeadingFilePath;
+};
+
+/** 空文字の環境変数は未指定として扱い、既定ファイルへfallbackする。 */
+const readJockeyLeadingFilePathFromEnv = (): string | undefined => {
+  const filePath = process.env[jockeyLeadingReferencePathEnvName]?.trim();
+  if (filePath === undefined || filePath.length === 0) {
+    return undefined;
+  }
+
+  return filePath;
 };
 
 /** Raceから重複を除いた騎手名を出走順に取り出す。 */

@@ -9,6 +9,7 @@ import {
   readPredictionPolicy,
   readRace,
   searchLessonEntries,
+  type JockeyLeadingReferenceOptions,
   type LessonStoreOptions,
   writePrediction,
   type PolicyStoreOptions,
@@ -29,6 +30,8 @@ interface AnalyzeCommandOptions {
   runsDir?: string | undefined;
   /** Lesson SQLite DBファイルのパス。 */
   lessonDb?: string | undefined;
+  /** 騎手リーディング参照JSONファイルのパス。 */
+  jockeyLeadingReferencePath?: string | undefined;
 }
 
 /** analyze コマンドのテスト差し替え用依存関係。 */
@@ -80,6 +83,7 @@ export const registerAnalyzeCommand = (
     .option("--policy-path <path>", "Prediction policy file path (compatibility)")
     .option("--runs-dir <path>", "Runs root directory")
     .option("--lesson-db <path>", "Lesson SQLite database path")
+    .option("--jockey-leading-reference-path <path>", "Jockey leading reference JSON file path")
     .action(async (raceId: string | undefined, options: AnalyzeCommandOptions) => {
       // 分析は保存済み run と予想方針を入力にし、Codex にはファイル取得を任せない。
       const resolvedRaceId = resolveRaceId(raceId, options);
@@ -96,7 +100,10 @@ export const registerAnalyzeCommand = (
       deps.log(`Lesson候補を ${lessonCandidates.length} 件見つけました。`);
       deps.log("予想方針を読み込んでいます。");
       const policy = await deps.readPredictionPolicy(buildPolicyStoreOptions(options));
-      const jockeyLeadingReference = await deps.readJockeyLeadingReferenceForRace(race);
+      const jockeyLeadingReference = await deps.readJockeyLeadingReferenceForRace(
+        race,
+        buildJockeyLeadingReferenceOptions(options)
+      );
       deps.log("Codexで予想分析を実行しています。");
       const prediction = await deps.analyzeRace(
         buildAnalyzeRaceInput(race, policy, options, lessonCandidates, jockeyLeadingReference)
@@ -145,6 +152,17 @@ const buildLessonStoreOptions = (options: AnalyzeCommandOptions): LessonStoreOpt
   }
 
   return { dbPath: options.lessonDb };
+};
+
+/** CLI オプションから騎手リーディング参照JSONの読み込み設定を組み立てる。 */
+const buildJockeyLeadingReferenceOptions = (
+  options: AnalyzeCommandOptions
+): JockeyLeadingReferenceOptions => {
+  if (options.jockeyLeadingReferencePath === undefined) {
+    return {};
+  }
+
+  return { filePath: options.jockeyLeadingReferencePath };
 };
 
 /** CLI オプションから予想方針の読み込み設定を組み立てる。 */

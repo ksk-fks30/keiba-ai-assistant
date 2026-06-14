@@ -6,12 +6,15 @@ import { parseRace, type Race } from "@keiba-ai-assistant/models";
 import { readJockeyLeadingReferenceForRace } from "@keiba-ai-assistant/storage/jockey-leading-reference";
 
 const tempRootDirs: string[] = [];
+const jockeyLeadingReferencePathEnvName = "KEIBA_JOCKEY_LEADING_REFERENCE_PATH";
+const originalJockeyLeadingReferencePath = process.env[jockeyLeadingReferencePathEnvName];
 
 afterEach(async () => {
   // Arrange
   const rootDirs = tempRootDirs.splice(0);
 
   // Act
+  restoreJockeyLeadingReferencePathEnv();
   await Promise.all(rootDirs.map((rootDir) => rm(rootDir, { recursive: true, force: true })));
 
   // Assert
@@ -38,6 +41,21 @@ describe("readJockeyLeadingReferenceForRace", () => {
     expect(actual).toContain("0.412");
     expect(actual).toContain("照合できなかった騎手: 未掲載太郎");
     expect(actual?.match(/Ｃ．ルメール/g)).toHaveLength(1);
+  });
+
+  test("環境変数で参照ファイルを指定できる", async () => {
+    // Arrange
+    const rootDir = await createTempRootDir();
+    const filePath = join(rootDir, "jockey-leading.json");
+    await writeFile(filePath, createJockeyLeadingJson(), "utf8");
+    process.env[jockeyLeadingReferencePathEnvName] = filePath;
+    const race = createRace(["ルメール"]);
+
+    // Act
+    const actual = await readJockeyLeadingReferenceForRace(race);
+
+    // Assert
+    expect(actual).toContain("ルメール\tＣ．ルメール\t1\t294\t84\t54\t42\t114");
   });
 
   test("参照ファイルが存在しない場合はundefinedを返す", async () => {
@@ -172,4 +190,14 @@ const createTempRootDir = async (): Promise<string> => {
   const rootDir = await mkdtemp(join(tmpdir(), "keiba-ai-jockey-leading-"));
   tempRootDirs.push(rootDir);
   return rootDir;
+};
+
+/** テストで変更した環境変数を元に戻す。 */
+const restoreJockeyLeadingReferencePathEnv = (): void => {
+  if (originalJockeyLeadingReferencePath === undefined) {
+    delete process.env[jockeyLeadingReferencePathEnvName];
+    return;
+  }
+
+  process.env[jockeyLeadingReferencePathEnvName] = originalJockeyLeadingReferencePath;
 };

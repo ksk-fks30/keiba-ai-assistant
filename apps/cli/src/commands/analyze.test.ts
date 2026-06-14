@@ -32,6 +32,7 @@ describe("registerAnalyzeCommand", () => {
     const rootDir = await createTempRootDir();
     const race = parseRace(sampleRace);
     const policyPath = await writeTempPolicyFile("芝マイルでは持続力を重視する。");
+    const jockeyLeadingReferencePath = join(rootDir, "jockey-leading.json");
     const lesson = createLessonEntry();
     const prediction = createPrediction(race.id, [
       {
@@ -62,8 +63,9 @@ describe("registerAnalyzeCommand", () => {
         expect(input.jockeyLeadingReference).toBe("騎手リーディング抜粋");
         return prediction;
       },
-      readJockeyLeadingReferenceForRace: async (input) => {
+      readJockeyLeadingReferenceForRace: async (input, options) => {
         expect(input).toEqual(race);
+        expect(options).toEqual({ filePath: jockeyLeadingReferencePath });
         return "騎手リーディング抜粋";
       },
       recordPredictionLessonReferences: async (references) => {
@@ -85,7 +87,9 @@ describe("registerAnalyzeCommand", () => {
       "--policy-path",
       policyPath,
       "--model",
-      "fixture-codex-model"
+      "fixture-codex-model",
+      "--jockey-leading-reference-path",
+      jockeyLeadingReferencePath
     ]);
     const actual = await readPrediction(race.id, { rootDir });
 

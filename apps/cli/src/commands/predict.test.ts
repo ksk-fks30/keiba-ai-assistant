@@ -47,6 +47,7 @@ describe("registerPredictCommand", () => {
     const logs: string[] = [];
     const recordedReferences: PredictionLessonReference[] = [];
     const lessonDbPath = join(rootDir, "lesson.sqlite");
+    const jockeyLeadingReferencePath = join(rootDir, "jockey-leading.json");
     const program = createPredictProgram({
       collectRaceSnapshot: async (input) => {
         expect(input).toEqual({
@@ -103,7 +104,7 @@ describe("registerPredictCommand", () => {
         expect(input.jockeyLeadingReference).toBe("騎手リーディング抜粋");
         return prediction;
       },
-      readJockeyLeadingReferenceForRace: async (input) => {
+      readJockeyLeadingReferenceForRace: async (input, options) => {
         expect(input).toEqual({
           ...race,
           weather: {
@@ -115,6 +116,7 @@ describe("registerPredictCommand", () => {
             observedAt: "2026-05-31T16:00:00+09:00"
           }
         });
+        expect(options).toEqual({ filePath: jockeyLeadingReferencePath });
         return "騎手リーディング抜粋";
       },
       recordPredictionLessonReferences: async (references, options) => {
@@ -140,6 +142,8 @@ describe("registerPredictCommand", () => {
       lessonDbPath,
       "--model",
       "fixture-codex-model",
+      "--jockey-leading-reference-path",
+      jockeyLeadingReferencePath,
       "--min-delay-ms",
       "5000",
       "--horse-detail-limit",
