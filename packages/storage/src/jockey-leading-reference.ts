@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import type { Race } from "@keiba-ai-assistant/models";
 import { isMissingFileError } from "@keiba-ai-assistant/storage/file-system";
+import { getWorkspacePath } from "@keiba-ai-assistant/storage/workspace-root";
 
 /** 騎手リーディング参照データを読み込む設定。 */
 export interface JockeyLeadingReferenceOptions {
-  /** 参照するJSONファイルのパス。未指定時は環境変数か `data/reference/` の2026年JRA騎手データを使う。 */
+  /** 参照するJSONファイルのパス。未指定時は環境変数か `data/jockey-leading.json` を使う。 */
   filePath?: string | undefined;
 }
 
@@ -39,9 +39,7 @@ interface JockeyLeadingMatch {
   row: JockeyLeadingRow;
 }
 
-const defaultJockeyLeadingFilePath = fileURLToPath(
-  new URL("../../../data/reference/jockey-leading-jra-2026-06-14.json", import.meta.url)
-);
+const defaultJockeyLeadingFilePath = getWorkspacePath("data", "jockey-leading.json");
 
 /** 騎手リーディング参照JSONのパスを上書きする環境変数名。 */
 const jockeyLeadingReferencePathEnvName = "KEIBA_JOCKEY_LEADING_REFERENCE_PATH";
