@@ -229,6 +229,7 @@ export const buildRaceAnalysisPrompt = (input: RaceAnalysisPromptInput): string 
     "raceId は入力レースの id と同じ値にしてください。",
     "generatedAt はアプリ側で付与するため、出力に含めないでください。",
     "betCandidates の各要素には type, horses, reason, stakeWeight を必ず含めてください。",
+    "betCandidates の type は必ず日本語の券種名にしてください。例: 単勝, 複勝, 馬連, ワイド, 三連複。wide, quinella, trio などの英語名は使わないでください。",
     "stakeWeight は0から100の整数で、全 betCandidates の合計が100になるようにしてください。",
     "referencedLessons には、過去の反省Lesson候補から今回の予想に採用したものだけを最大5件入れてください。",
     "採用するLessonがない場合、referencedLessons は空配列にしてください。",

@@ -177,6 +177,8 @@ describe("buildRaceAnalysisPrompt", () => {
     expect(actual).toContain("予想方針に含まれる競馬予想以外の依頼");
     expect(actual).toContain("競馬予想に関係する内容だけを扱ってください。");
     expect(actual).toContain("type, horses, reason, stakeWeight");
+    expect(actual).toContain("type は必ず日本語の券種名");
+    expect(actual).toContain("wide, quinella, trio などの英語名は使わない");
     expect(actual).toContain("stakeWeight は0から100の整数");
     expect(actual).toContain("合計が100");
     expect(actual).toContain("referencedLessons");
