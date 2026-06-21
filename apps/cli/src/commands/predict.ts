@@ -4,7 +4,13 @@ import {
   extractRaceFromSnapshot,
   type AnalyzeRaceInput
 } from "@keiba-ai-assistant/ai";
-import { parseRace, type Prediction, type Race, type Weather } from "@keiba-ai-assistant/models";
+import {
+  parseRace,
+  type LessonEntry,
+  type Prediction,
+  type Race,
+  type Weather
+} from "@keiba-ai-assistant/models";
 import {
   collectRaceSnapshotFromNetkeiba,
   createOpenMeteoWeatherProvider,
@@ -16,8 +22,10 @@ import {
   buildPredictionLessonReferences,
   invalidateRunAnalysis,
   recordPredictionLessonReferences,
+  readJockeyLeadingReferenceForRace,
   readPredictionPolicy,
   searchLessonEntries,
+  type JockeyLeadingReferenceOptions,
   type LessonStoreOptions,
   writePrediction,
   writeRace,
@@ -39,6 +47,8 @@ interface PredictCommandOptions {
   policyPath?: string | undefined;
   /** Lesson SQLite DBファイルのパス。 */
   lessonDb?: string | undefined;
+  /** 騎手リーディング参照JSONファイルのパス。 */
+  jockeyLeadingReferencePath?: string | undefined;
   /** ページ表示後に最低限待機する時間。ミリ秒文字列。 */
   minDelayMs?: string | undefined;
   /** レースページから遷移して取得する馬詳細ページの最大件数。未指定なら全頭。 */
@@ -59,6 +69,8 @@ export interface PredictCommandDependencies {
   weatherProvider?: WeatherProvider | undefined;
   /** 予想方針を読み込む関数。 */
   readPredictionPolicy?: typeof readPredictionPolicy | undefined;
+  /** 今回出走する騎手だけに絞ったJRA騎手リーディング参照文を読み込む関数。 */
+  readJockeyLeadingReferenceForRace?: typeof readJockeyLeadingReferenceForRace | undefined;
   /** 予想時に参照するLesson候補を検索する関数。 */
   searchLessonEntries?: typeof searchLessonEntries | undefined;
   /** レース分析を実行する関数。 */
@@ -86,6 +98,8 @@ export const registerPredictCommand = (
     extractRaceFromSnapshot: dependencies.extractRaceFromSnapshot ?? extractRaceFromSnapshot,
     weatherProvider: dependencies.weatherProvider ?? defaultWeatherProvider,
     readPredictionPolicy: dependencies.readPredictionPolicy ?? readPredictionPolicy,
+    readJockeyLeadingReferenceForRace:
+      dependencies.readJockeyLeadingReferenceForRace ?? readJockeyLeadingReferenceForRace,
     searchLessonEntries: dependencies.searchLessonEntries ?? searchLessonEntries,
     analyzeRace: dependencies.analyzeRace ?? analyzeRace,
     invalidateRunAnalysis: dependencies.invalidateRunAnalysis ?? invalidateRunAnalysis,
@@ -106,6 +120,7 @@ export const registerPredictCommand = (
     .option("--policy-dir <path>", "Prediction policy directory path")
     .option("--policy-path <path>", "Prediction policy file path (compatibility)")
     .option("--lesson-db <path>", "Lesson SQLite database path")
+    .option("--jockey-leading-reference-path <path>", "Jockey leading reference JSON file path")
     .option("--min-delay-ms <ms>", "Minimum delay after page load in milliseconds")
     .option(
       "--horse-detail-limit <count>",
@@ -145,13 +160,20 @@ export const registerPredictCommand = (
       deps.log(`Lesson候補を ${lessonCandidates.length} 件見つけました。`);
       deps.log("予想方針を読み込んでいます。");
       const policy = await deps.readPredictionPolicy(buildPolicyStoreOptions(options));
+      const jockeyLeadingReference = await deps.readJockeyLeadingReferenceForRace(
+        raceWithWeather,
+        buildJockeyLeadingReferenceOptions(options)
+      );
       deps.log("Codexで予想分析を実行しています。");
-      const prediction = await deps.analyzeRace({
-        race: raceWithWeather,
-        policy,
-        lessonCandidates,
-        ...buildCodexModelOption(options)
-      });
+      const prediction = await deps.analyzeRace(
+        buildAnalyzeRaceInput(
+          raceWithWeather,
+          policy,
+          lessonCandidates,
+          options,
+          jockeyLeadingReference
+        )
+      );
       deps.log("prediction.json を保存しています。");
       await deps.writePrediction(prediction, runStoreOptions);
       if (prediction.referencedLessons.length > 0) {
@@ -298,6 +320,25 @@ const buildCodexModelOption = (options: PredictCommandOptions) => {
   return { model: options.model };
 };
 
+/** CLI predict の実行情報をAI分析入力へ変換する。 */
+const buildAnalyzeRaceInput = (
+  race: Race,
+  policy: Awaited<ReturnType<typeof readPredictionPolicy>>,
+  lessonCandidates: LessonEntry[],
+  options: PredictCommandOptions,
+  jockeyLeadingReference: string | undefined
+): AnalyzeRaceInput => {
+  const input: AnalyzeRaceInput = { race, policy, lessonCandidates };
+  if (options.model !== undefined) {
+    input.model = options.model;
+  }
+  if (jockeyLeadingReference !== undefined) {
+    input.jockeyLeadingReference = jockeyLeadingReference;
+  }
+
+  return input;
+};
+
 /** CLI オプションから予想方針の読み込み設定を組み立てる。 */
 const buildPolicyStoreOptions = (options: PredictCommandOptions): PolicyStoreOptions => {
   if (options.policyDir !== undefined && options.policyPath !== undefined) {
@@ -329,6 +370,17 @@ const buildLessonStoreOptions = (options: PredictCommandOptions): LessonStoreOpt
   }
 
   return { dbPath: options.lessonDb };
+};
+
+/** CLI オプションから騎手リーディング参照JSONの読み込み設定を組み立てる。 */
+const buildJockeyLeadingReferenceOptions = (
+  options: PredictCommandOptions
+): JockeyLeadingReferenceOptions => {
+  if (options.jockeyLeadingReferencePath === undefined) {
+    return {};
+  }
+
+  return { filePath: options.jockeyLeadingReferencePath };
 };
 
 /** 1以上の整数として扱う CLI オプションを検証して number に変換する。 */

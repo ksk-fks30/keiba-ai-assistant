@@ -1,0 +1,4 @@
+interface:
+  display_name: "Open PR Review"
+  short_description: "Open PR作成後にレビューして再pushまで行う"
+  default_prompt: "変更をOpen PRとして公開し、作成後にレビューして必要なら修正して再pushしてください。"

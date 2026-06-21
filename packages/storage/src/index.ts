@@ -8,6 +8,7 @@ export {
   getPolicyPath,
   readPredictionPolicy
 } from "@keiba-ai-assistant/storage/policy-store";
+export { readJockeyLeadingReferenceForRace } from "@keiba-ai-assistant/storage/jockey-leading-reference";
 export {
   deleteHorseMemo,
   getDefaultHorseMemoDatabasePath,
@@ -51,6 +52,7 @@ export type {
   WriteHorseMemoMarkInput,
   WriteHorseMemoNoteInput
 } from "@keiba-ai-assistant/storage/horse-memo-store";
+export type { JockeyLeadingReferenceOptions } from "@keiba-ai-assistant/storage/jockey-leading-reference";
 export type {
   LessonSearchInput,
   LessonSearchResult,

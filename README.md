@@ -74,6 +74,83 @@ runs/
 
 `runs/` と `data/` の中身はGit管理しません。
 
+## 騎手リーディングデータ
+
+騎手成績の補助情報は `data/jockey-leading.json` に保存します。
+
+このファイルは、JRA騎手リーディングを予想時の補助軸として使うためのローカルデータです。分析時には全件をそのままAIに渡さず、対象レースに出走する騎手だけを抽出して、順位、勝率、連対率、複勝率、芝/ダート成績などの短い参照情報としてプロンプトへ渡します。
+
+`data/jockey-leading.json` はGit管理しません。更新日ごとにファイルを増やすのではなく、常にこの1ファイルを上書きして使います。新しいデータを取得した場合は、同じファイル名のまま内容を更新してください。
+
+通常は `data/jockey-leading.json` が既定の参照先です。別のファイルで一時的に試したい場合は、環境変数またはCLIオプションで上書きできます。
+
+```sh
+KEIBA_JOCKEY_LEADING_REFERENCE_PATH=/path/to/jockey-leading.json pnpm keiba:web
+pnpm keiba:cli predict "<race-url>" --jockey-leading-reference-path /path/to/jockey-leading.json
+pnpm keiba:cli analyze <race-id> --jockey-leading-reference-path /path/to/jockey-leading.json
+```
+
+参照ファイルが存在しない場合、分析自体は止めず、騎手リーディングなしで予想します。JSONの構造が壊れている場合は、誤った数値をAIに渡さないためエラーにします。
+
+### JSONの書き方
+
+トップレベルには、データの基準日、取得元情報、騎手行の配列を入れます。
+
+```json
+{
+  "dataAsOf": "2026-06-14",
+  "source": "netkeiba JRA騎手リーディング",
+  "sourceUrl": "https://db.netkeiba.com/jockey/jockey_leading_jra.html",
+  "netkeibaLabel": "2026/06/14現在",
+  "entries": [
+    {
+      "rank": 1,
+      "jockeyName": "Ｃ．ルメール",
+      "firstPlaceCount": 84,
+      "secondPlaceCount": 54,
+      "thirdPlaceCount": 42,
+      "outOfFrameCount": 114,
+      "gradedRuns": 33,
+      "gradedWins": 9,
+      "specialRuns": 82,
+      "specialWins": 20,
+      "ordinaryRuns": 179,
+      "ordinaryWins": 55,
+      "turfRuns": 167,
+      "turfWins": 50,
+      "dirtRuns": 127,
+      "dirtWins": 34,
+      "winRate": 0.286,
+      "quinellaRate": 0.469,
+      "showRate": 0.612
+    }
+  ]
+}
+```
+
+主な項目の意味は次の通りです。
+
+| 項目                                                                           | 内容                                                       |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `dataAsOf`                                                                     | データ基準日です。更新した日付を `YYYY-MM-DD` で書きます。 |
+| `source`                                                                       | データの説明です。例: `netkeiba JRA騎手リーディング`       |
+| `sourceUrl`                                                                    | 取得元URLです。                                            |
+| `netkeibaLabel`                                                                | netkeiba上の表示日付です。例: `2026/06/14現在`             |
+| `entries`                                                                      | 騎手ごとの成績行です。                                     |
+| `rank`                                                                         | リーディング順位です。                                     |
+| `jockeyName`                                                                   | 騎手名です。netkeiba表記をそのまま入れます。               |
+| `firstPlaceCount` / `secondPlaceCount` / `thirdPlaceCount` / `outOfFrameCount` | 1着、2着、3着、着外の回数です。                            |
+| `gradedRuns` / `gradedWins`                                                    | 重賞の騎乗数と勝利数です。                                 |
+| `specialRuns` / `specialWins`                                                  | 特別戦の騎乗数と勝利数です。                               |
+| `ordinaryRuns` / `ordinaryWins`                                                | 平場の騎乗数と勝利数です。                                 |
+| `turfRuns` / `turfWins`                                                        | 芝の騎乗数と勝利数です。                                   |
+| `dirtRuns` / `dirtWins`                                                        | ダートの騎乗数と勝利数です。                               |
+| `winRate`                                                                      | 勝率です。`28.6%` は `0.286` と書きます。                  |
+| `quinellaRate`                                                                 | 連対率です。`46.9%` は `0.469` と書きます。                |
+| `showRate`                                                                     | 複勝率です。`61.2%` は `0.612` と書きます。                |
+
+`jockeyName` はレースデータ内の騎手名と完全一致しない場合があります。アプリ側では全角/半角、空白、外国人騎手のイニシャル表記などをある程度正規化して照合しますが、曖昧な一致や複数候補になる場合は照合できなかった騎手として扱います。
+
 ## 初回セットアップ
 
 WebとCLIのどちらを使う場合も、依存パッケージとPlaywright Chromiumをインストールします。

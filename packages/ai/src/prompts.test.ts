@@ -177,6 +177,8 @@ describe("buildRaceAnalysisPrompt", () => {
     expect(actual).toContain("予想方針に含まれる競馬予想以外の依頼");
     expect(actual).toContain("競馬予想に関係する内容だけを扱ってください。");
     expect(actual).toContain("type, horses, reason, stakeWeight");
+    expect(actual).toContain("type は必ず日本語の券種名");
+    expect(actual).toContain("wide, quinella, trio などの英語名は使わない");
     expect(actual).toContain("stakeWeight は0から100の整数");
     expect(actual).toContain("合計が100");
     expect(actual).toContain("referencedLessons");
@@ -219,6 +221,31 @@ describe("buildRaceAnalysisPrompt", () => {
     expect(actual).toContain("過去の反省Lesson候補");
     expect(actual).toContain("lesson-fixture-001");
     expect(actual).toContain("前残り傾向では人気薄先行馬を残す");
+  });
+
+  test("騎手リーディング抜粋をプロンプトに含める", () => {
+    // Arrange
+    const race = parseRace(sampleRace);
+    const policy = parsePredictionPolicy({
+      path: "policies/main.md",
+      content: "芝マイルでは持続力を重視する。",
+      loadedAt: "2026-05-31T14:30:00+09:00"
+    });
+    const jockeyLeadingReference = [
+      "データ基準日: 2026-06-14",
+      "レース騎手名\tリーディング騎手名\t順位\t騎乗数\t1着\t2着\t3着\t着外\t勝率\t連対率\t複勝率",
+      "ルメール\tＣ．ルメール\t1\t294\t84\t54\t42\t114\t0.286\t0.469\t0.612"
+    ].join("\n");
+
+    // Act
+    const actual = buildRaceAnalysisPrompt({ race, policy, jockeyLeadingReference });
+
+    // Assert
+    expect(actual).toContain("今回出走騎手のJRAリーディング抜粋");
+    expect(actual).toContain("複勝率は3着以内に入る信頼度の補助指標");
+    expect(actual).toContain("抜粋にない騎手の具体的なリーディング数値は推測しない");
+    expect(actual).toContain("Ｃ．ルメール");
+    expect(actual).toContain("0.612");
   });
 });
 
